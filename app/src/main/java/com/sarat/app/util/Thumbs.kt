@@ -27,6 +27,13 @@ class Thumbs(context: Context) {
         if (f.exists()) BitmapFactory.decodeFile(f.path) else null
     }
 
+    /** نسخ صورة وجبة لوجبة جديدة (لما تتسجل من المفضلة). */
+    suspend fun copy(fromId: Long, toId: Long) = withContext(Dispatchers.IO) {
+        val src = file(fromId)
+        if (src.exists()) src.copyTo(file(toId), overwrite = true)
+        Unit
+    }
+
     fun delete(mealId: Long) {
         file(mealId).delete()
     }

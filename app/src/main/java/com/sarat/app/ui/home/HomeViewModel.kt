@@ -61,6 +61,21 @@ class HomeViewModel(private val repo: Repository, private val thumbs: com.sarat.
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val favorites: StateFlow<List<Meal>> =
+        repo.favorites.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** يسجّل وجبة مفضلة بضغطة، بنفس سعراتها وبدون Gemini. */
+    fun logFavorite(meal: Meal) {
+        viewModelScope.launch {
+            val id = repo.logAgain(meal.id, Dates.todayEpoch(), Dates.nowMinute()) ?: return@launch
+            runCatching { thumbs.copy(meal.id, id) }
+        }
+    }
+
+    fun toggleFavorite(meal: Meal) {
+        viewModelScope.launch { repo.setFavorite(meal.title, !meal.favorite) }
+    }
+
     fun deleteMeal(id: Long) {
         viewModelScope.launch { repo.deleteMeal(id); thumbs.delete(id) }
     }

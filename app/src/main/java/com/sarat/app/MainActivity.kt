@@ -32,6 +32,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = if (night) SystemBarStyle.dark(C.Card.toArgb()) else SystemBarStyle.light(C.Card.toArgb(), C.Card.toArgb()),
         )
         val repo = (application as SaratApp).container.repository
+        val startAction = intent?.getStringExtra(com.sarat.app.notify.Reminders.EXTRA_OPEN)
 
         setContent {
             SaratTheme {
@@ -41,7 +42,7 @@ class MainActivity : ComponentActivity() {
                         value = repo.getProfile() != null
                     }
                     Box(Modifier.fillMaxSize().background(C.Ground)) {
-                        hasProfile?.let { AppNav(hasProfile = it) }
+                        hasProfile?.let { AppNav(hasProfile = it, startAction = startAction) }
                     }
                 }
             }

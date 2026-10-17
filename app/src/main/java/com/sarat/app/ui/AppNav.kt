@@ -3,6 +3,7 @@ package com.sarat.app.ui
 import android.app.Application
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -44,6 +45,7 @@ object Routes {
     const val API_KEY_SETUP = "api_key_setup"
     const val API_KEY = "api_key"
     const val PLAN = "plan"
+    const val SETTINGS = "settings"
     const val MEAL_PHOTO = "meal/photo?uri={uri}"
     fun mealPhoto(uri: Uri) = "meal/photo?uri=${Uri.encode(uri.toString())}"
 }
@@ -60,7 +62,7 @@ private fun NavHostController.goTab(tab: Tab) {
 }
 
 @Composable
-fun AppNav(hasProfile: Boolean) {
+fun AppNav(hasProfile: Boolean, startAction: String? = null) {
     val nav = rememberNavController()
     val c = container()
     val app = LocalContext.current.applicationContext as Application
@@ -68,6 +70,17 @@ fun AppNav(hasProfile: Boolean) {
     // شاشة الترحيب تطلع مرة وحدة باليوم، والاحتفال مرة وحدة لكل إنجاز
     var welcomeDay by remember { mutableStateOf(c.prefs.lastWelcomeDay) }
     var celebrated by remember { mutableStateOf(c.prefs.lastCelebratedStreak) }
+
+    // فتح التطبيق من إشعار أو من الودجت
+    var autoCamera by remember { mutableStateOf(hasProfile && startAction == com.sarat.app.notify.Reminders.OPEN_CAMERA) }
+    if (startAction != null && startAction != com.sarat.app.notify.Reminders.OPEN_HOME) {
+        // ما نطلع شاشة الترحيب فوق المكان اللي طلبه
+        LaunchedEffect(Unit) {
+            val t = com.sarat.app.util.Dates.todayEpoch()
+            c.prefs.lastWelcomeDay = t
+            welcomeDay = t
+        }
+    }
 
     NavHost(nav, startDestination = if (hasProfile) Routes.HOME else Routes.ONBOARDING) {
 
@@ -105,10 +118,21 @@ fun AppNav(hasProfile: Boolean) {
         composable(Routes.HOME) {
             val vm = viewModel { HomeViewModel(c.repository, c.thumbs) }
             val key by c.apiKeys.key.collectAsStateWithLifecycle()
+            com.sarat.app.ui.settings.NotificationPermissionGate(c.prefs)
+            LaunchedEffect(Unit) {
+                if (hasProfile) when (startAction) {
+                    com.sarat.app.notify.Reminders.OPEN_PLAN -> nav.navigate(Routes.PLAN)
+                    com.sarat.app.notify.Reminders.OPEN_PROGRESS -> nav.goTab(Tab.PROGRESS)
+                    else -> Unit
+                }
+            }
             HomeScreen(
                 vm,
                 hasKey = key.isNotBlank(),
                 onApiKey = { nav.navigate(Routes.API_KEY) },
+                onSettings = { nav.navigate(Routes.SETTINGS) },
+                autoCamera = autoCamera,
+                onAutoCameraDone = { autoCamera = false },
                 onTab = nav::goTab,
                 onPhoto = { uri -> nav.navigate(Routes.mealPhoto(uri)) },
                 onText = { nav.navigate(Routes.MEAL_TEXT) },
@@ -133,6 +157,14 @@ fun AppNav(hasProfile: Boolean) {
         composable(Routes.PROGRESS) {
             val vm = viewModel { ProgressViewModel(c.repository) }
             ProgressScreen(vm, onTab = nav::goTab)
+        }
+
+        composable(Routes.SETTINGS) {
+            com.sarat.app.ui.settings.SettingsScreen(
+                prefs = c.prefs,
+                onApiKey = { nav.navigate(Routes.API_KEY) },
+                onBack = { nav.popBackStack() },
+            )
         }
 
         composable(Routes.PLAN) {

@@ -40,8 +40,10 @@ data class MealEntity(
     val suggestion: String,
     /** المكونات بصيغة JSON. */
     val itemsJson: String,
-    /** PHOTO | TEXT */
+    /** PHOTO | TEXT | PLAN */
     val source: String,
+    /** المستخدم ثبّتها كوجبة مفضلة. */
+    @ColumnInfo(defaultValue = "0") val favorite: Boolean = false,
 )
 
 @Entity(tableName = "weights", indices = [Index(value = ["epochDay"], unique = true)])

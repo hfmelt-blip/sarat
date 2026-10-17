@@ -69,6 +69,17 @@ class Repository(private val db: AppDatabase) {
 
     suspend fun deleteMeal(id: Long) = db.mealDao().delete(id)
 
+    val favorites: Flow<List<Meal>> = db.mealDao().observeFavorites().map { list -> list.map { it.toMeal() } }
+
+    /** تثبيت أو إلغاء تثبيت وجبة كمفضلة (كل الوجبات بنفس الاسم). */
+    suspend fun setFavorite(title: String, value: Boolean) = db.mealDao().setFavorite(title, value)
+
+    /** يسجّل نسخة من وجبة سابقة بتاريخ ووقت اليوم، ويرجع رقمها الجديد. */
+    suspend fun logAgain(mealId: Long, epochDay: Long, minuteOfDay: Int): Long? {
+        val m = db.mealDao().get(mealId) ?: return null
+        return db.mealDao().insert(m.copy(id = 0, epochDay = epochDay, minuteOfDay = minuteOfDay))
+    }
+
     // ───── الوزن ─────
 
     val weights: Flow<List<WeightEntity>> = db.weightDao().observeAll()
@@ -89,6 +100,7 @@ class Repository(private val db: AppDatabase) {
         fatG = fatG,
         verdict = verdict,
         source = source,
+        favorite = favorite,
         items = runCatching { json.decodeFromString(itemsSerializer, itemsJson) }.getOrDefault(emptyList()),
     )
 
@@ -135,5 +147,6 @@ data class Meal(
     val fatG: Double,
     val verdict: String,
     val source: String,
+    val favorite: Boolean = false,
     val items: List<FoodItem>,
 )

@@ -33,6 +33,28 @@ interface MealDao {
     @Query("SELECT epochDay, SUM(calories) AS total FROM meals WHERE epochDay >= :from AND epochDay < :until GROUP BY epochDay")
     suspend fun totalsBetween(from: Long, until: Long): List<DayTotal>
 
+    /**
+     * الوجبات المفضلة: اللي ثبّتها المستخدم، أو اللي تكررت مرتين أو أكثر بنفس الاسم.
+     * نرجع آخر نسخة من كل وجبة، والأكثر تكراراً أولاً.
+     */
+    @Query(
+        """
+        SELECT m.* FROM meals m
+        JOIN (SELECT title, MAX(id) AS mid, COUNT(*) AS c, MAX(favorite) AS fav FROM meals GROUP BY title) f
+          ON m.id = f.mid
+        WHERE f.c >= 2 OR f.fav = 1
+        ORDER BY f.fav DESC, f.c DESC, m.id DESC
+        LIMIT 10
+        """
+    )
+    fun observeFavorites(): Flow<List<MealEntity>>
+
+    @Query("UPDATE meals SET favorite = :value WHERE title = :title")
+    suspend fun setFavorite(title: String, value: Boolean)
+
+    @Query("SELECT * FROM meals WHERE id = :id")
+    suspend fun get(id: Long): MealEntity?
+
     @Insert
     suspend fun insert(meal: MealEntity): Long
 

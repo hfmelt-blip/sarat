@@ -26,6 +26,12 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.MonitorWeight
@@ -82,6 +88,9 @@ fun HomeScreen(
     vm: HomeViewModel,
     hasKey: Boolean,
     onApiKey: () -> Unit,
+    onSettings: () -> Unit,
+    autoCamera: Boolean,
+    onAutoCameraDone: () -> Unit,
     onTab: (Tab) -> Unit,
     onPhoto: (Uri) -> Unit,
     onText: () -> Unit,
@@ -108,6 +117,18 @@ fun HomeScreen(
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) onPhoto(uri)
     }
+    val favorites by vm.favorites.collectAsStateWithLifecycle()
+    var toLog by remember { mutableStateOf<Meal?>(null) }
+
+    // فتح الكاميرا مباشرة إذا انفتح التطبيق من الإشعار أو الودجت
+    LaunchedEffect(autoCamera) {
+        if (autoCamera) {
+            onAutoCameraDone()
+            val uri = Images.newCaptureUri(context)
+            pendingUri = uri.toString()
+            camera.launch(uri)
+        }
+    }
 
     Scaffold(
         containerColor = C.Ground,
@@ -129,8 +150,8 @@ fun HomeScreen(
                     IconButton(onClick = { scope.launch { AppSharer.share(context) } }) {
                         Icon(Icons.Outlined.Share, contentDescription = "شارك التطبيق مع أصدقائك", tint = C.Green)
                     }
-                    IconButton(onClick = onApiKey) {
-                        Icon(Icons.Outlined.Key, contentDescription = "إعدادات Gemini", tint = C.Muted)
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "الإعدادات", tint = C.Muted)
                     }
                 }
             }
@@ -261,6 +282,21 @@ fun HomeScreen(
                 item { WeighInBanner(onWeighIn) }
             }
 
+            if (favorites.isNotEmpty()) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("وجباتك المفضلة", style = MaterialTheme.typography.titleMedium)
+                        Text("ضغطة وحدة تسجّلها بنفس سعراتها", fontSize = 12.sp, color = C.Muted)
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            favorites.forEach { fav -> FavoriteChip(fav) { toLog = fav } }
+                        }
+                    }
+                }
+            }
+
             item { Text("وجبات اليوم", style = MaterialTheme.typography.titleMedium) }
 
             if (s.meals.isEmpty()) {
@@ -271,7 +307,9 @@ fun HomeScreen(
                     )
                 }
             }
-            items(s.meals, key = { it.id }) { meal -> MealRow(meal, onDelete = { toDelete = meal }) }
+            items(s.meals, key = { it.id }) { meal ->
+                MealRow(meal, onDelete = { toDelete = meal }, onStar = { vm.toggleFavorite(meal) })
+            }
         }
     }
 
@@ -294,6 +332,18 @@ fun HomeScreen(
             line = (if (ws.profile.name.isBlank()) "" else "${ws.profile.name}، ") +
                 if (she) "إنتِ بطلة، كمّلي هيچ وهدفچ يقرب كل يوم" else "إنت بطل، كمّل هيچ وهدفك يقرب كل يوم",
             onDone = { onCelebrated(ws.streak) },
+        )
+    }
+
+    toLog?.let { meal ->
+        AlertDialog(
+            onDismissRequest = { toLog = null },
+            title = { Text("تسجيل «${meal.title}»؟") },
+            text = { Text("${meal.calories} سعرة، بنفس كميات آخر مرة. تكدر تحذفها بعدين إذا غيّرت رأيك.") },
+            confirmButton = {
+                TextButton(onClick = { vm.logFavorite(meal); toLog = null }) { Text("سجّلها", color = C.Green) }
+            },
+            dismissButton = { TextButton(onClick = { toLog = null }) { Text("إلغاء") } },
         )
     }
 
@@ -357,7 +407,28 @@ fun WeighInBanner(onClick: () -> Unit) {
 }
 
 @Composable
-private fun MealRow(meal: Meal, onDelete: () -> Unit) {
+private fun FavoriteChip(meal: Meal, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(C.Card)
+            .border(1.dp, if (meal.favorite) C.Green else C.Line, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(start = 6.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        MealThumb(meal.id, meal.source == "PHOTO", size = 36.dp)
+        Column {
+            Text(meal.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 140.dp))
+            Text("${meal.calories} سعرة", fontSize = 11.sp, color = C.Muted)
+        }
+    }
+}
+
+@Composable
+private fun MealRow(meal: Meal, onDelete: () -> Unit, onStar: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -383,6 +454,13 @@ private fun MealRow(meal: Meal, onDelete: () -> Unit) {
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("${meal.calories}", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             VerdictBadge(Verdict.from(meal.verdict))
+        }
+        IconButton(onClick = onStar) {
+            Icon(
+                if (meal.favorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                contentDescription = if (meal.favorite) "إلغاء من المفضلة" else "أضف للمفضلة",
+                tint = if (meal.favorite) Color(0xFFE0A030) else C.Muted,
+            )
         }
         IconButton(onClick = onDelete) {
             Icon(Icons.Outlined.DeleteOutline, contentDescription = "حذف ${meal.title}", tint = C.Muted)

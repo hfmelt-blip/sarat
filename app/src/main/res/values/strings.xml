@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">شد الهمة</string>
+    <string name="widget_description">السعرات الباقية لليوم، مع زر للتصوير و«شنو آكل؟»</string>
 </resources>
