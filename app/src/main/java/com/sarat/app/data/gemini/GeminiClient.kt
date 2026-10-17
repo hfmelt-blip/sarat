@@ -85,13 +85,38 @@ class GeminiClient(
         }
     }
 
-    private suspend fun generate(text: String, imageBase64: String?): MealAnalysis = withContext(Dispatchers.IO) {
+    private suspend fun generate(text: String, imageBase64: String?): MealAnalysis {
+        val answer = requestJson(Prompts.system, text, imageBase64, responseSchema)
+        return try {
+            json.decodeFromString(MealAnalysis.serializer(), answer)
+        } catch (e: Exception) {
+            throw GeminiException("ما قدرنا نفهم رد التحليل. حاول مرة ثانية.")
+        }
+    }
+
+    /** يقترح وجبة من المكونات المتوفرة ضمن سعرات محددة. */
+    suspend fun suggestMeal(userText: String): MealSuggestion {
+        val answer = requestJson(PlanPrompts.system, userText, null, PlanPrompts.schema)
+        return try {
+            json.decodeFromString(MealSuggestion.serializer(), answer)
+        } catch (e: Exception) {
+            throw GeminiException("ما قدرنا نفهم الاقتراح. حاول مرة ثانية.")
+        }
+    }
+
+    /** يرسل الطلب ويرجع نص JSON من الرد، وينتقل للنموذج الاحتياطي إذا خلصت الحصة. */
+    private suspend fun requestJson(
+        system: String,
+        text: String,
+        imageBase64: String?,
+        schema: JsonObject,
+    ): String = withContext(Dispatchers.IO) {
         val key = keyProvider()
         if (key.isBlank()) throw GeminiException("اربط Gemini أولاً: الصق مفتاحك المجاني من شاشة الإعدادات.")
 
         val body = buildJsonObject {
             putJsonObject("systemInstruction") {
-                putJsonArray("parts") { addJsonObject { put("text", Prompts.system) } }
+                putJsonArray("parts") { addJsonObject { put("text", system) } }
             }
             putJsonArray("contents") {
                 addJsonObject {
@@ -111,7 +136,7 @@ class GeminiClient(
             }
             putJsonObject("generationConfig") {
                 put("responseMimeType", "application/json")
-                put("responseSchema", responseSchema)
+                put("responseSchema", schema)
             }
         }.toString()
 
@@ -125,12 +150,7 @@ class GeminiClient(
                 if (e.code == 429 || e.code == 404 || e.code >= 500) continue
                 throw GeminiException(e.message ?: "خطأ من Gemini")
             }
-            val answer = extractText(raw)
-            return@withContext try {
-                json.decodeFromString(MealAnalysis.serializer(), answer)
-            } catch (e: Exception) {
-                throw GeminiException("ما قدرنا نفهم رد التحليل. حاول مرة ثانية.")
-            }
+            return@withContext extractText(raw)
         }
         throw GeminiException(lastError?.message ?: "خدمة Gemini غير متاحة حالياً.")
     }

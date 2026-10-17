@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -84,6 +85,7 @@ fun HomeScreen(
     onTab: (Tab) -> Unit,
     onPhoto: (Uri) -> Unit,
     onText: () -> Unit,
+    onPlan: () -> Unit,
     onWeighIn: () -> Unit,
     showWelcome: Boolean,
     onWelcomeShown: () -> Unit,
@@ -208,6 +210,29 @@ fun HomeScreen(
                         Icon(Icons.Outlined.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text("  أو اختر صورة من المعرض", fontSize = 14.sp)
                     }
+                }
+            }
+
+            item {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(C.Hero)
+                        .clickable(onClick = onPlan)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(
+                        Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(C.InkSoft),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Outlined.Restaurant, contentDescription = null, tint = Color(0xFFFFB45C)) }
+                    Column(Modifier.weight(1f)) {
+                        Text("شنو آكل؟", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("وجبة من الموجود بالبيت وبحدود سعراتك الباقية", color = C.OnDarkMuted, fontSize = 13.sp)
+                    }
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = Color.White)
                 }
             }
 
@@ -347,7 +372,11 @@ private fun MealRow(meal: Meal, onDelete: () -> Unit) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(meal.title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                Dates.time(meal.minuteOfDay) + if (meal.source == "PHOTO") " · بالكاميرا" else " · بالكتابة",
+                Dates.time(meal.minuteOfDay) + when (meal.source) {
+                    "PHOTO" -> " · بالكاميرا"
+                    "PLAN" -> " · وجبة مقترحة"
+                    else -> " · بالكتابة"
+                },
                 fontSize = 12.sp, color = C.Muted,
             )
         }

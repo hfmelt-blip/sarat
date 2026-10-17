@@ -43,6 +43,7 @@ object Routes {
     const val MEAL_TEXT = "meal/text"
     const val API_KEY_SETUP = "api_key_setup"
     const val API_KEY = "api_key"
+    const val PLAN = "plan"
     const val MEAL_PHOTO = "meal/photo?uri={uri}"
     fun mealPhoto(uri: Uri) = "meal/photo?uri=${Uri.encode(uri.toString())}"
 }
@@ -111,6 +112,7 @@ fun AppNav(hasProfile: Boolean) {
                 onTab = nav::goTab,
                 onPhoto = { uri -> nav.navigate(Routes.mealPhoto(uri)) },
                 onText = { nav.navigate(Routes.MEAL_TEXT) },
+                onPlan = { nav.navigate(Routes.PLAN) },
                 onWeighIn = { nav.goTab(Tab.PROGRESS) },
                 showWelcome = welcomeDay != com.sarat.app.util.Dates.todayEpoch(),
                 onWelcomeShown = {
@@ -131,6 +133,11 @@ fun AppNav(hasProfile: Boolean) {
         composable(Routes.PROGRESS) {
             val vm = viewModel { ProgressViewModel(c.repository) }
             ProgressScreen(vm, onTab = nav::goTab)
+        }
+
+        composable(Routes.PLAN) {
+            val vm = viewModel { com.sarat.app.ui.plan.PlanViewModel(c.repository, c.gemini, c.prefs) }
+            com.sarat.app.ui.plan.PlanScreen(vm, onBack = { nav.popBackStack() }, onSaved = { nav.popBackStack(Routes.HOME, inclusive = false) })
         }
 
         composable(Routes.MEAL_TEXT) {

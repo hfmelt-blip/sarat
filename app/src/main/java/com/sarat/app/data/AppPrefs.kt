@@ -13,4 +13,13 @@ class AppPrefs(context: Context) {
     var lastCelebratedStreak: Int
         get() = prefs.getInt("last_celebrated_streak", 0)
         set(value) = prefs.edit().putInt("last_celebrated_streak", value).apply()
+
+    /** المكونات المتوفرة بالبيت، تنحفظ حتى ما يكتبها كل مرة. */
+    var pantry: String
+        get() = prefs.getString("pantry", "").orEmpty()
+        set(value) = prefs.edit().putString("pantry", value).apply()
+
+    var mealsPerDay: Int
+        get() = prefs.getInt("meals_per_day", 3)
+        set(value) = prefs.edit().putInt("meals_per_day", value).apply()
 }
