@@ -12,6 +12,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import com.sarat.app.ui.AppNav
@@ -21,10 +22,14 @@ import com.sarat.app.ui.theme.SaratTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // الواجهة فاتحة دائماً، فنخلي أيقونات شريط الحالة داكنة
+        // الوضع الداكن يتبع إعداد الموبايل، وتغييره يعيد إنشاء الشاشة تلقائياً
+        val night = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        C.dark = night
+        val clear = android.graphics.Color.TRANSPARENT
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.light(android.graphics.Color.WHITE, android.graphics.Color.WHITE),
+            statusBarStyle = if (night) SystemBarStyle.dark(clear) else SystemBarStyle.light(clear, clear),
+            navigationBarStyle = if (night) SystemBarStyle.dark(C.Card.toArgb()) else SystemBarStyle.light(C.Card.toArgb(), C.Card.toArgb()),
         )
         val repo = (application as SaratApp).container.repository
 

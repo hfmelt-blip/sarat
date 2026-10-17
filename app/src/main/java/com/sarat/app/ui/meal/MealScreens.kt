@@ -47,6 +47,7 @@ import com.sarat.app.data.gemini.FoodItem
 import com.sarat.app.data.gemini.MealAnalysis
 import com.sarat.app.data.gemini.Verdict
 import com.sarat.app.ui.components.FitDot
+import com.sarat.app.ui.components.MealResultSkeleton
 import com.sarat.app.ui.components.PrimaryButton
 import com.sarat.app.ui.components.SecondaryButton
 import com.sarat.app.ui.components.VerdictCard
@@ -73,7 +74,7 @@ fun MealPhotoScreen(vm: MealViewModel, uri: Uri, onBack: () -> Unit, onSaved: ()
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             when {
-                vm.loading -> Loading("نحلل الصورة…")
+                vm.loading -> MealResultSkeleton("نحلل الصورة ونحسب السعرات…")
                 vm.error != null -> ErrorBox(vm.error!!, vm::retry)
                 vm.analysis != null -> ResultContent(
                     analysis = vm.analysis!!,
@@ -128,7 +129,7 @@ fun TextEntryScreen(vm: MealViewModel, onBack: () -> Unit, onSaved: () -> Unit) 
             ) { Text("احسب وقيّم", fontWeight = FontWeight.SemiBold) }
 
             when {
-                vm.loading -> Loading("نحسب السعرات…")
+                vm.loading -> MealResultSkeleton("نحسب السعرات ونقيّم الوجبة…")
                 vm.error != null -> ErrorBox(vm.error!!, vm::retry)
                 vm.analysis != null -> ResultContent(
                     analysis = vm.analysis!!,
@@ -173,11 +174,11 @@ private fun ResultContent(
 
     if (analysis.medicationNote.isNotBlank()) {
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0xFFE6EBF5)).padding(12.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(C.InfoBg).padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Icon(Icons.Outlined.Medication, contentDescription = null, tint = Color(0xFF2B4C8C))
-            Text(analysis.medicationNote, fontSize = 13.sp, color = Color(0xFF1F3766), lineHeight = 21.sp)
+            Icon(Icons.Outlined.Medication, contentDescription = null, tint = C.InfoIcon)
+            Text(analysis.medicationNote, fontSize = 13.sp, color = C.InfoText, lineHeight = 21.sp)
         }
     }
 
@@ -209,7 +210,7 @@ private fun ItemRow(item: FoodItem, onMinus: () -> Unit, onPlus: () -> Unit, onR
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .background(C.Card)
             .border(1.dp, C.Line, RoundedCornerShape(14.dp))
             .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -265,7 +266,7 @@ private fun SaveBar(vm: MealViewModel, onSaved: () -> Unit, secondary: String?, 
 private fun BackCircle(onBack: () -> Unit, modifier: Modifier = Modifier) {
     IconButton(
         onClick = onBack,
-        modifier = modifier.size(44.dp).clip(RoundedCornerShape(22.dp)).background(Color.White),
+        modifier = modifier.size(44.dp).clip(RoundedCornerShape(22.dp)).background(C.Card),
     ) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "رجوع", tint = C.Ink) }
 }
 

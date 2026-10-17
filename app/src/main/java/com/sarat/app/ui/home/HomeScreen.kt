@@ -42,6 +42,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +63,8 @@ import com.sarat.app.data.Meal
 import com.sarat.app.data.gemini.Verdict
 import com.sarat.app.domain.Motivation
 import com.sarat.app.ui.components.CalorieRing
+import com.sarat.app.ui.components.Celebration
+import com.sarat.app.ui.components.MealThumb
 import com.sarat.app.ui.components.MacroBar
 import com.sarat.app.ui.components.MainBottomBar
 import com.sarat.app.ui.components.SectionCard
@@ -84,6 +87,8 @@ fun HomeScreen(
     onWeighIn: () -> Unit,
     showWelcome: Boolean,
     onWelcomeShown: () -> Unit,
+    lastCelebrated: Int,
+    onCelebrated: (Int) -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     // رقم عشوائي لكل فتحة للتطبيق حتى تتنوع عبارات التحفيز
@@ -154,7 +159,7 @@ fun HomeScreen(
             }
 
             item {
-                SectionCard(Modifier, background = Color.White) {
+                SectionCard(Modifier, background = C.Card) {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         CalorieRing(s.consumed, s.plan.dailyTarget)
                     }
@@ -246,11 +251,24 @@ fun HomeScreen(
     }
 
     val ws = state
+    // إذا انقطعت سلسلة الالتزام، نصفّر آخر احتفال حتى نحتفل من جديد لما يرجع يوصلها
+    LaunchedEffect(ws?.streak) {
+        val streak = ws?.streak ?: return@LaunchedEffect
+        if (streak < lastCelebrated) onCelebrated(streak)
+    }
     if (showWelcome && ws != null) {
         WelcomeOverlay(
             title = Motivation.welcomeTitle(ws.profile.name),
             line = Motivation.line(motivationContext(ws, Dates.nowMinute()), seed),
             onDone = onWelcomeShown,
+        )
+    } else if (ws != null && ws.streak in MILESTONES && ws.streak > lastCelebrated) {
+        val she = ws.profile.sex == com.sarat.app.domain.Sex.FEMALE
+        Celebration(
+            title = "${ws.streak} أيام التزام!",
+            line = (if (ws.profile.name.isBlank()) "" else "${ws.profile.name}، ") +
+                if (she) "إنتِ بطلة، كمّلي هيچ وهدفچ يقرب كل يوم" else "إنت بطل، كمّل هيچ وهدفك يقرب كل يوم",
+            onDone = { onCelebrated(ws.streak) },
         )
     }
 
@@ -266,6 +284,9 @@ fun HomeScreen(
         )
     }
 }
+
+/** أيام الالتزام اللي نحتفل بيها. */
+private val MILESTONES = setOf(3, 7, 14, 21, 30, 45, 60, 90)
 
 private fun motivationContext(s: HomeState, minute: Int) = Motivation.Context(
     name = s.profile.name,
@@ -292,14 +313,14 @@ fun WeighInBanner(onClick: () -> Unit) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(C.GreenSoft)
-            .border(1.dp, Color(0xFFB9D6C7), RoundedCornerShape(16.dp))
+            .border(1.dp, C.GoodBorder, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
-            Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color.White),
+            Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(C.Card),
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Outlined.MonitorWeight, contentDescription = null, tint = C.GreenDark) }
         Column(Modifier.weight(1f)) {
@@ -316,23 +337,13 @@ private fun MealRow(meal: Meal, onDelete: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
+            .background(C.Card)
             .border(1.dp, C.Line, RoundedCornerShape(16.dp))
             .padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(
-            Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
-                .background(if (meal.source == "PHOTO") C.GreenSoft else C.Beige),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                if (meal.source == "PHOTO") Icons.Outlined.PhotoCamera else Icons.Outlined.EditNote,
-                contentDescription = null,
-                tint = if (meal.source == "PHOTO") C.Green else C.OrangeText,
-            )
-        }
+        MealThumb(meal.id, meal.source == "PHOTO")
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(meal.title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(

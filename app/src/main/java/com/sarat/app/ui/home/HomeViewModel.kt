@@ -31,7 +31,7 @@ data class HomeState(
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class HomeViewModel(private val repo: Repository) : ViewModel() {
+class HomeViewModel(private val repo: Repository, private val thumbs: com.sarat.app.util.Thumbs) : ViewModel() {
 
     private val todayFlow = Dates.todayFlow()
 
@@ -62,6 +62,6 @@ class HomeViewModel(private val repo: Repository) : ViewModel() {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun deleteMeal(id: Long) {
-        viewModelScope.launch { repo.deleteMeal(id) }
+        viewModelScope.launch { repo.deleteMeal(id); thumbs.delete(id) }
     }
 }

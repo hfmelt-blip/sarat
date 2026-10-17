@@ -164,7 +164,7 @@ private fun StepProfile(vm: OnboardingViewModel) {
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color.White)
+                .background(C.Card)
                 .border(1.dp, C.Line, RoundedCornerShape(16.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -193,7 +193,7 @@ private fun StepDietGoal(vm: OnboardingViewModel) {
             ChoiceBox(selected = checked, onClick = { vm.toggleGoal(goal) }, role = Role.Checkbox) {
                 Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(
-                        Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color.White),
+                        Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(C.Card),
                         contentAlignment = Alignment.Center,
                     ) { Icon(goalIcon(goal), contentDescription = null, tint = C.Green) }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -249,7 +249,7 @@ private fun StepWeightGoal(vm: OnboardingViewModel) {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
                 .background(C.GreenSoft)
-                .border(1.dp, Color(0xFFB9D6C7), RoundedCornerShape(18.dp))
+                .border(1.dp, C.GoodBorder, RoundedCornerShape(18.dp))
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -309,7 +309,7 @@ private fun StepWeightGoal(vm: OnboardingViewModel) {
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(C.Ink)
+                .background(C.Hero)
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
@@ -348,7 +348,7 @@ private fun TargetChip(label: String, selected: Boolean, onClick: () -> Unit) {
         label,
         modifier = Modifier
             .clip(shape)
-            .background(if (selected) C.Green else Color.White)
+            .background(if (selected) C.Green else C.Card)
             .border(1.dp, C.Green, shape)
             .selectable(selected = selected, role = Role.Button, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -370,7 +370,7 @@ private fun ChoiceBox(
     val base = modifier
         .fillMaxWidth()
         .clip(shape)
-        .background(if (selected) C.GreenSoft else Color.White)
+        .background(if (selected) C.GreenSoft else C.Card)
         .border(if (selected) 2.dp else 1.dp, if (selected) C.Green else C.Border, shape)
     val interactive = when (role) {
         Role.Checkbox -> base.toggleable(value = selected, role = role, onValueChange = { onClick() })

@@ -73,7 +73,7 @@ fun ProgressScreen(vm: ProgressViewModel, onTab: (Tab) -> Unit) {
 
             // ملخص الخطة الحالية
             Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(C.Ink).padding(16.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(C.Hero).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -152,7 +152,7 @@ private fun ResultSection(r: WeighInResult, onSave: () -> Unit) {
     }
 
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(C.Ink).padding(16.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(C.Hero).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         val projected = r.projectedEtaEpochDay

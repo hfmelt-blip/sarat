@@ -47,8 +47,9 @@ class Repository(private val db: AppDatabase) {
     suspend fun totalsBetween(from: Long, until: Long): Map<Long, Int> =
         db.mealDao().totalsBetween(from, until).associate { it.epochDay to it.total }
 
-    suspend fun addMeal(analysis: MealAnalysis, epochDay: Long, minuteOfDay: Int, source: String) {
-        db.mealDao().insert(
+    /** يحفظ الوجبة ويرجع رقمها (يُستخدم لاسم الصورة المصغّرة). */
+    suspend fun addMeal(analysis: MealAnalysis, epochDay: Long, minuteOfDay: Int, source: String): Long {
+        return db.mealDao().insert(
             MealEntity(
                 epochDay = epochDay,
                 minuteOfDay = minuteOfDay,

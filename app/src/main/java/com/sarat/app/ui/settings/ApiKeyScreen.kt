@@ -101,7 +101,7 @@ fun ApiKeyScreen(vm: ApiKeyViewModel, onSaved: () -> Unit, onBack: (() -> Unit)?
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (onBack != null) {
-                IconButton(onClick = onBack, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White)) {
+                IconButton(onClick = onBack, modifier = Modifier.size(44.dp).clip(CircleShape).background(C.Card)) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "رجوع", tint = C.Ink)
                 }
             }

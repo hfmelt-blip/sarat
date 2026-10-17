@@ -29,6 +29,7 @@ import com.sarat.app.ui.settings.ApiKeyScreen
 import com.sarat.app.ui.settings.ApiKeyViewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,8 +64,9 @@ fun AppNav(hasProfile: Boolean) {
     val c = container()
     val app = LocalContext.current.applicationContext as Application
 
-    // شاشة الترحيب تطلع مرة وحدة كل ما ينفتح التطبيق
-    var welcomed by rememberSaveable { mutableStateOf(false) }
+    // شاشة الترحيب تطلع مرة وحدة باليوم، والاحتفال مرة وحدة لكل إنجاز
+    var welcomeDay by remember { mutableStateOf(c.prefs.lastWelcomeDay) }
+    var celebrated by remember { mutableStateOf(c.prefs.lastCelebratedStreak) }
 
     NavHost(nav, startDestination = if (hasProfile) Routes.HOME else Routes.ONBOARDING) {
 
@@ -100,7 +102,7 @@ fun AppNav(hasProfile: Boolean) {
         }
 
         composable(Routes.HOME) {
-            val vm = viewModel { HomeViewModel(c.repository) }
+            val vm = viewModel { HomeViewModel(c.repository, c.thumbs) }
             val key by c.apiKeys.key.collectAsStateWithLifecycle()
             HomeScreen(
                 vm,
@@ -110,8 +112,14 @@ fun AppNav(hasProfile: Boolean) {
                 onPhoto = { uri -> nav.navigate(Routes.mealPhoto(uri)) },
                 onText = { nav.navigate(Routes.MEAL_TEXT) },
                 onWeighIn = { nav.goTab(Tab.PROGRESS) },
-                showWelcome = !welcomed,
-                onWelcomeShown = { welcomed = true },
+                showWelcome = welcomeDay != com.sarat.app.util.Dates.todayEpoch(),
+                onWelcomeShown = {
+                    val t = com.sarat.app.util.Dates.todayEpoch()
+                    c.prefs.lastWelcomeDay = t
+                    welcomeDay = t
+                },
+                lastCelebrated = celebrated,
+                onCelebrated = { n -> c.prefs.lastCelebratedStreak = n; celebrated = n },
             )
         }
 
@@ -126,7 +134,7 @@ fun AppNav(hasProfile: Boolean) {
         }
 
         composable(Routes.MEAL_TEXT) {
-            val vm = viewModel { MealViewModel(app, c.repository, c.gemini) }
+            val vm = viewModel { MealViewModel(app, c.repository, c.gemini, c.thumbs) }
             TextEntryScreen(vm, onBack = { nav.popBackStack() }, onSaved = { nav.popBackStack(Routes.HOME, inclusive = false) })
         }
 
@@ -135,7 +143,7 @@ fun AppNav(hasProfile: Boolean) {
             arguments = listOf(navArgument("uri") { type = NavType.StringType }),
         ) { entry ->
             val uri = Uri.parse(entry.arguments?.getString("uri").orEmpty())
-            val vm = viewModel { MealViewModel(app, c.repository, c.gemini) }
+            val vm = viewModel { MealViewModel(app, c.repository, c.gemini, c.thumbs) }
             MealPhotoScreen(vm, uri, onBack = { nav.popBackStack() }, onSaved = { nav.popBackStack(Routes.HOME, inclusive = false) })
         }
     }

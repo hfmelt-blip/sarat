@@ -29,7 +29,11 @@ class MealViewModel(
     private val app: Application,
     private val repo: Repository,
     private val gemini: GeminiClient,
+    private val thumbs: com.sarat.app.util.Thumbs,
 ) : ViewModel() {
+
+    /** الصورة الأصلية (مصغّرة) حتى نحفظ منها صورة صغيرة للسجل. */
+    private var photo: Bitmap? = null
 
     var description by mutableStateOf("")
     var loading by mutableStateOf(false)
@@ -86,6 +90,7 @@ class MealViewModel(
         lastPhoto = uri
         launchAnalysis {
             val bitmap = withContext(Dispatchers.IO) { decode(uri) }
+            photo = bitmap
             preview = bitmap.asImageBitmap()
             val base64 = withContext(Dispatchers.Default) { Images.encode(bitmap) }
             gemini.analyzePhoto(base64, buildContext())
@@ -140,7 +145,8 @@ class MealViewModel(
         val a = analysis ?: return
         if (a.items.isEmpty()) return
         viewModelScope.launch {
-            repo.addMeal(a, mealDay, mealMinute, source)
+            val id = repo.addMeal(a, mealDay, mealMinute, source)
+            if (source == "PHOTO") photo?.let { runCatching { thumbs.save(id, it) } }
             onSaved()
         }
     }

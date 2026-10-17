@@ -60,7 +60,7 @@ import com.sarat.app.ui.theme.C
 @Composable
 fun SectionCard(
     modifier: Modifier = Modifier,
-    background: Color = Color.White,
+    background: Color = C.Card,
     border: Color = C.Line,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -214,9 +214,9 @@ fun MacroBar(label: String, value: Double, target: Int, color: Color, modifier: 
 data class VerdictStyle(val bg: Color, val border: Color, val text: Color, val icon: ImageVector)
 
 fun verdictStyle(v: Verdict) = when (v) {
-    Verdict.GOOD -> VerdictStyle(C.GreenSoft, Color(0xFFB9D6C7), C.GreenDark, Icons.Outlined.CheckCircle)
-    Verdict.OK_WITH_CHANGES -> VerdictStyle(C.OrangeSoft, Color(0xFFEBC9A3), C.OrangeText, Icons.Outlined.WarningAmber)
-    Verdict.NOT_SUITABLE -> VerdictStyle(C.RedSoft, Color(0xFFE8B4AE), C.RedText, Icons.Outlined.Cancel)
+    Verdict.GOOD -> VerdictStyle(C.GreenSoft, C.GoodBorder, C.GreenDark, Icons.Outlined.CheckCircle)
+    Verdict.OK_WITH_CHANGES -> VerdictStyle(C.OrangeSoft, C.WarnBorder, C.OrangeText, Icons.Outlined.WarningAmber)
+    Verdict.NOT_SUITABLE -> VerdictStyle(C.RedSoft, C.BadBorder, C.RedText, Icons.Outlined.Cancel)
 }
 
 @Composable
@@ -295,7 +295,7 @@ enum class Tab(val route: String, val label: String, val icon: ImageVector) {
 
 @Composable
 fun MainBottomBar(current: Tab, onSelect: (Tab) -> Unit) {
-    NavigationBar(containerColor = Color.White) {
+    NavigationBar(containerColor = C.Card) {
         Tab.entries.forEach { tab ->
             NavigationBarItem(
                 selected = tab == current,
