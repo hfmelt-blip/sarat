@@ -1,0 +1,149 @@
+package com.sarat.app.ui.meal
+
+import android.app.Application
+import android.graphics.Bitmap
+import android.net.Uri
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.sarat.app.data.Repository
+import com.sarat.app.data.gemini.GeminiClient
+import com.sarat.app.data.gemini.GeminiException
+import com.sarat.app.data.gemini.MealAnalysis
+import com.sarat.app.data.gemini.MealContext
+import com.sarat.app.domain.DietGoal
+import com.sarat.app.domain.Nutrition
+import com.sarat.app.util.Dates
+import com.sarat.app.util.Images
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.math.max
+
+class MealViewModel(
+    private val app: Application,
+    private val repo: Repository,
+    private val gemini: GeminiClient,
+) : ViewModel() {
+
+    var description by mutableStateOf("")
+    var loading by mutableStateOf(false)
+        private set
+    var error by mutableStateOf<String?>(null)
+        private set
+    var analysis by mutableStateOf<MealAnalysis?>(null)
+        private set
+    var preview by mutableStateOf<ImageBitmap?>(null)
+        private set
+
+    /** السعرات المتبقية قبل هذه الوجبة. */
+    var remainingBefore by mutableStateOf(0)
+        private set
+    var goals by mutableStateOf(setOf<DietGoal>())
+        private set
+
+    /** وقت الوجبة يتثبت أول ما يبدأ التحليل حتى ما يتغير تاريخها. */
+    private var mealDay = Dates.todayEpoch()
+    private var mealMinute = Dates.nowMinute()
+    private var source = "TEXT"
+    private var lastPhoto: Uri? = null
+    private var started = false
+
+    val remainingAfter: Int get() = remainingBefore - (analysis?.totalCalories ?: 0)
+
+    private suspend fun buildContext(): MealContext {
+        mealDay = Dates.todayEpoch()
+        mealMinute = Dates.nowMinute()
+        val profile = repo.getProfile() ?: throw GeminiException("أكمل ملفك الشخصي أولاً.")
+        val weight = repo.weights.first().lastOrNull()?.kg ?: profile.startWeightKg
+        val plan = Nutrition.plan(profile, weight, mealDay)
+        val consumed = repo.mealsForDay(mealDay).first().sumOf { it.calories }
+        remainingBefore = plan.dailyTarget - consumed
+        goals = profile.goals
+        return MealContext(
+            goals = profile.goals,
+            remainingCalories = max(0, remainingBefore),
+            dailyTarget = plan.dailyTarget,
+            nowMinuteOfDay = mealMinute,
+            thyroidMedMinute = profile.thyroidMedMinute,
+        )
+    }
+
+    /** يُستدعى مرة وحدة عند فتح شاشة الصورة. */
+    fun startPhoto(uri: Uri) {
+        if (started) return
+        started = true
+        analyzePhoto(uri)
+    }
+
+    fun analyzePhoto(uri: Uri) {
+        source = "PHOTO"
+        lastPhoto = uri
+        launchAnalysis {
+            val bitmap = withContext(Dispatchers.IO) { decode(uri) }
+            preview = bitmap.asImageBitmap()
+            val base64 = withContext(Dispatchers.Default) { Images.encode(bitmap) }
+            gemini.analyzePhoto(base64, buildContext())
+        }
+    }
+
+    fun analyzeText() {
+        val text = description.trim()
+        if (text.isEmpty()) return
+        source = "TEXT"
+        launchAnalysis { gemini.analyzeText(text, buildContext()) }
+    }
+
+    fun retry() {
+        val photo = lastPhoto
+        if (source == "PHOTO" && photo != null) analyzePhoto(photo) else analyzeText()
+    }
+
+    private fun launchAnalysis(block: suspend () -> MealAnalysis) {
+        if (loading) return
+        loading = true
+        error = null
+        viewModelScope.launch {
+            try {
+                analysis = block()
+            } catch (e: GeminiException) {
+                error = e.message
+            } catch (e: Exception) {
+                error = "صار خطأ غير متوقع: ${e.message ?: e.javaClass.simpleName}"
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    fun scaleItem(index: Int, factor: Double) {
+        val a = analysis ?: return
+        val items = a.items.toMutableList()
+        val item = items.getOrNull(index) ?: return
+        val next = item.scaled(factor)
+        if (next.calories <= 0 && factor < 1) return
+        items[index] = next
+        analysis = a.copy(items = items)
+    }
+
+    fun removeItem(index: Int) {
+        val a = analysis ?: return
+        analysis = a.copy(items = a.items.filterIndexed { i, _ -> i != index })
+    }
+
+    fun save(onSaved: () -> Unit) {
+        val a = analysis ?: return
+        if (a.items.isEmpty()) return
+        viewModelScope.launch {
+            repo.addMeal(a, mealDay, mealMinute, source)
+            onSaved()
+        }
+    }
+
+    private fun decode(uri: Uri): Bitmap = Images.decodeScaled(app, uri)
+}
