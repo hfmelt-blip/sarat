@@ -46,7 +46,7 @@ class GeminiClient(
 
     private val http = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(90, TimeUnit.SECONDS)
+        .readTimeout(150, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
@@ -114,7 +114,7 @@ class GeminiClient(
         val key = keyProvider()
         if (key.isBlank()) throw GeminiException("اربط Gemini أولاً: الصق مفتاحك المجاني من شاشة الإعدادات.")
 
-        val body = buildJsonObject {
+        fun body(lowThinking: Boolean) = buildJsonObject {
             putJsonObject("systemInstruction") {
                 putJsonArray("parts") { addJsonObject { put("text", system) } }
             }
@@ -137,17 +137,24 @@ class GeminiClient(
             putJsonObject("generationConfig") {
                 put("responseMimeType", "application/json")
                 put("responseSchema", schema)
+                // تفكير أقل = رد أسرع بكثير، والمهمة ما تحتاج تفكير طويل
+                if (lowThinking) putJsonObject("thinkingConfig") { put("thinkingLevel", "low") }
             }
         }.toString()
 
         var lastError: HttpError? = null
         for (model in models) {
             val raw = try {
-                call(model, key, body)
+                try {
+                    call(model, key, body(lowThinking = true))
+                } catch (e: HttpError) {
+                    // إذا النموذج ما يقبل إعداد التفكير، نعيد الطلب بدونه
+                    if (e.code == 400) call(model, key, body(lowThinking = false)) else throw e
+                }
             } catch (e: HttpError) {
                 lastError = e
-                // نجرب النموذج الاحتياطي فقط إذا المشكلة بالحصة أو النموذج أو ضغط الخدمة
-                if (e.code == 429 || e.code == 404 || e.code >= 500) continue
+                // نجرب النموذج الاحتياطي إذا المشكلة بالحصة أو النموذج أو ضغط الخدمة أو التأخير
+                if (e.code == 429 || e.code == 404 || e.code == 408 || e.code >= 500) continue
                 throw GeminiException(e.message ?: "خطأ من Gemini")
             }
             return@withContext extractText(raw)
@@ -167,8 +174,14 @@ class GeminiClient(
                 if (!response.isSuccessful) throw HttpError(response.code, errorMessage(response.code, model, payload))
                 payload
             }
+        } catch (e: java.net.SocketTimeoutException) {
+            throw HttpError(408, "Gemini طوّل بالرد. حاول مرة ثانية.")
+        } catch (e: java.io.InterruptedIOException) {
+            throw HttpError(408, "Gemini طوّل بالرد. حاول مرة ثانية.")
+        } catch (e: java.net.UnknownHostException) {
+            throw GeminiException("ما كو اتصال بالإنترنت. تأكد من الشبكة وحاول مرة ثانية.")
         } catch (e: IOException) {
-            throw GeminiException("تعذّر الاتصال. تأكد من الإنترنت وحاول مرة ثانية.")
+            throw HttpError(503, "تعذّر الوصول لخدمة Gemini. حاول بعد شوية.")
         }
     }
 
