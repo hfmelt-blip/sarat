@@ -43,6 +43,32 @@ object Nutrition {
     fun tdee(p: UserProfile, currentWeightKg: Double): Int =
         (baseTdee(p, currentWeightKg) + p.tdeeAdjustment).roundToInt()
 
+    /**
+     * الوزن المثالي التقريبي: مؤشر كتلة 22 للبالغين، و24 لمن عمره 65 فما فوق
+     * (لأن الوزن الأعلى قليلاً أصح مع تقدم العمر). يُقرّب لأقرب نصف كيلو.
+     */
+    fun idealWeight(heightCm: Double, age: Int): Double {
+        val m = heightCm / 100.0
+        val bmi = if (age >= 65) 24.0 else 22.0
+        return roundHalf(bmi * m * m)
+    }
+
+    /** المدى الطبيعي للوزن حسب الطول (مؤشر كتلة 18.5 إلى 24.9). */
+    fun healthyRange(heightCm: Double): Pair<Double, Double> {
+        val m = heightCm / 100.0
+        return roundHalf(MIN_HEALTHY_BMI * m * m) to roundHalf(24.9 * m * m)
+    }
+
+    fun bmi(weightKg: Double, heightCm: Double): Double {
+        val m = heightCm / 100.0
+        return weightKg / (m * m)
+    }
+
+    /** هدف مرحلي واقعي: نزول 10٪ من الوزن الحالي. */
+    fun stagedTarget(currentKg: Double): Double = roundHalf(currentKg * 0.9)
+
+    private fun roundHalf(v: Double): Double = kotlin.math.round(v * 2) / 2.0
+
     fun minHealthyWeight(heightCm: Double): Double {
         val m = heightCm / 100.0
         return MIN_HEALTHY_BMI * m * m

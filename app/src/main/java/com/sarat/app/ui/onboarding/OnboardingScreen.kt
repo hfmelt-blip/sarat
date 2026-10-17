@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bloodtype
+import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Spa
@@ -239,6 +240,55 @@ private fun StepWeightGoal(vm: OnboardingViewModel) {
     }
     vm.targetError?.let { Text(it, color = C.Red, fontSize = 13.sp) }
 
+    val ideal = vm.idealWeight
+    val range = vm.healthyRange
+    val recommended = vm.recommendedTarget
+    if (ideal != null && range != null && recommended != null) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(C.GreenSoft)
+                .border(1.dp, Color(0xFFB9D6C7), RoundedCornerShape(18.dp))
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Outlined.Favorite, contentDescription = null, tint = C.Green, modifier = Modifier.size(20.dp))
+                Text("وزنك المثالي حسب طولك وعمرك", color = C.GreenDark, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Text("${ideal.fmt()} كغم", color = C.GreenDark, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "الوزن الطبيعي لطولك من ${range.first.fmt()} إلى ${range.second.fmt()} كغم. " +
+                    "تكدر تغيّر الهدف براحتك ضمن الحد الصحي.",
+                color = C.GreenDark, fontSize = 13.sp, lineHeight = 20.sp,
+            )
+            if (vm.underweight) {
+                Text("وزنك الحالي أقل من الطبيعي، فالأفضل تحافظ عليه أو تزيده بمراجعة الطبيب.", color = C.RedText, fontSize = 13.sp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TargetChip(
+                    label = "الموصى به ${recommended.fmt()}",
+                    selected = vm.targetWeight.toDoubleOrNull() == recommended,
+                    onClick = { vm.targetWeight = recommended.fmt() },
+                )
+                vm.stagedTarget?.let { staged ->
+                    TargetChip(
+                        label = "هدف مرحلي ${staged.fmt()}",
+                        selected = vm.targetWeight.toDoubleOrNull() == staged,
+                        onClick = { vm.targetWeight = staged.fmt() },
+                    )
+                }
+            }
+            if (vm.stagedTarget != null) {
+                Text(
+                    "المسافة للوزن المثالي طويلة، فممكن تبدي بهدف مرحلي (نزول ١٠٪) وبعدين تكمل. نزول ٥–١٠٪ بس يحسّن الصحة بشكل واضح.",
+                    color = C.GreenDark, fontSize = 12.sp, lineHeight = 19.sp,
+                )
+            }
+        }
+    }
+
     Text("سرعة النزول بالأسبوع (كغم)", style = MaterialTheme.typography.titleMedium)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(0.25 to "مريح", 0.5 to "موصى", 0.75 to "أسرع", 1.0 to "الحد الأقصى").forEach { (rate, label) ->
@@ -276,8 +326,11 @@ private fun StepWeightGoal(vm: OnboardingViewModel) {
                     Modifier.weight(1f), dark = true,
                 )
             }
-            plan.etaEpochDay?.let {
-                Text("توصل لـ ${vm.targetWeight} كغم حوالي ${Dates.fullDate(it)}", color = Color.White, fontSize = 14.sp)
+            val eta = plan.etaEpochDay
+            if (eta != null) {
+                Text("توصل لـ ${vm.targetWeight} كغم حوالي ${Dates.fullDate(eta)}", color = Color.White, fontSize = 14.sp)
+            } else {
+                Text("هدفك تحافظ على وزنك الحالي، فسعراتك اليومية تساوي احتياجك.", color = Color.White, fontSize = 14.sp)
             }
         }
         if (plan.limitedByMinimum) {
@@ -286,6 +339,23 @@ private fun StepWeightGoal(vm: OnboardingViewModel) {
     }
 
     InfoNote("الحساب تقريبي. التطبيق ما ينزّل هدفك تحت حد أدنى آمن، وإذا عندك حالة صحية راجع طبيبك قبل أي نظام.")
+}
+
+@Composable
+private fun TargetChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
+    Text(
+        label,
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) C.Green else Color.White)
+            .border(1.dp, C.Green, shape)
+            .selectable(selected = selected, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        color = if (selected) Color.White else C.Green,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+    )
 }
 
 @Composable

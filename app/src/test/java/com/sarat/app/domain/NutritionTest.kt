@@ -60,4 +60,14 @@ class NutritionTest {
         assertFalse(c.reliable)
         assertEquals(profile.tdeeAdjustment, c.newAdjustment)
     }
+
+    @Test
+    fun idealWeightAndRange() {
+        assertEquals(67.5, Nutrition.idealWeight(175.0, 35), 0.01)
+        assertEquals(73.5, Nutrition.idealWeight(175.0, 70), 0.01)
+        val (low, high) = Nutrition.healthyRange(175.0)
+        assertEquals(56.5, low, 0.01)
+        assertEquals(76.5, high, 0.01)
+        assertEquals(81.0, Nutrition.stagedTarget(90.0), 0.01)
+    }
 }

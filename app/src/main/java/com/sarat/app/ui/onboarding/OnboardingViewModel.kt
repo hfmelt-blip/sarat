@@ -85,13 +85,45 @@ class OnboardingViewModel(
 
     val minHealthyWeight: Double? get() = heightN?.let { Nutrition.minHealthyWeight(it) }
 
+    /** الوزن المثالي حسب الطول والعمر. */
+    val idealWeight: Double? get() {
+        val h = heightN ?: return null
+        val a = ageN ?: return null
+        return Nutrition.idealWeight(h, a)
+    }
+
+    val healthyRange: Pair<Double, Double>? get() = heightN?.let { Nutrition.healthyRange(it) }
+
+    /** الهدف الموصى به: الوزن المثالي، أو الوزن الحالي إذا هو أصلاً أقل من المثالي. */
+    val recommendedTarget: Double? get() {
+        val ideal = idealWeight ?: return null
+        val w = weightN ?: return null
+        return if (w <= ideal) w else ideal
+    }
+
+    /** هدف مرحلي (١٠٪) يُقترح إذا المسافة للوزن المثالي كبيرة. */
+    val stagedTarget: Double? get() {
+        val w = weightN ?: return null
+        val ideal = idealWeight ?: return null
+        val staged = Nutrition.stagedTarget(w)
+        return if (w - ideal > w * 0.15 && staged > ideal) staged else null
+    }
+
+    /** وزنه الحالي أقل من الطبيعي، فما ننصح بأي نزول. */
+    val underweight: Boolean get() {
+        val w = weightN ?: return false
+        val h = heightN ?: return false
+        return Nutrition.bmi(w, h) < Nutrition.MIN_HEALTHY_BMI
+    }
+
     val targetError: String?
         get() {
             val t = targetN ?: return null
             val w = weightN ?: return null
             val min = minHealthyWeight ?: return null
             return when {
-                t >= w -> "الوزن المستهدف لازم يكون أقل من وزنك الحالي"
+                t > w -> "الوزن المستهدف لازم يكون أقل من وزنك الحالي أو يساويه"
+                underweight && t < w -> "وزنك أقل من الطبيعي لطولك، فما ننصح بأي نزول"
                 t < min -> "هذا الوزن أقل من الوزن الصحي لطولك (أقل شي ${min.fmt(0)} كغم)"
                 else -> null
             }
@@ -139,7 +171,11 @@ class OnboardingViewModel(
             return Nutrition.plan(p, weightN!!, Dates.todayEpoch())
         }
 
-    fun next() { if (step < 3) step++ }
+    fun next() {
+        if (step < 3) step++
+        // نملأ الوزن المستهدف بالموصى به أول ما يوصل للخطوة الثالثة
+        if (step == 3 && targetWeight.isBlank()) recommendedTarget?.let { targetWeight = it.fmt() }
+    }
     fun back(): Boolean = if (step > 1) { step--; true } else false
 
     fun save(onDone: () -> Unit) {
