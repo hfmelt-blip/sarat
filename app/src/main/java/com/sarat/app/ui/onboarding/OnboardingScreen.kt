@@ -31,6 +31,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
@@ -107,6 +108,17 @@ fun OnboardingScreen(vm: OnboardingViewModel, onDone: () -> Unit, onExit: (() ->
 @Composable
 private fun StepProfile(vm: OnboardingViewModel) {
     StepHeader(1, 3, "خلّينا نعرفك", "نحسب منها احتياج جسمك اليومي من السعرات.")
+
+    OutlinedTextField(
+        value = vm.name,
+        onValueChange = { vm.name = it.take(30) },
+        label = { Text("اسمك") },
+        placeholder = { Text("مثلاً: حيدر") },
+        supportingText = { Text("حتى نرحب بيك ونشجعك كل يوم") },
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth(),
+    )
 
     Text("الجنس", style = MaterialTheme.typography.titleMedium)
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

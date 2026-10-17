@@ -29,6 +29,8 @@ enum class DietGoal(val label: String, val description: String, val carbShare: D
 }
 
 data class UserProfile(
+    /** اسم المستخدم للترحيب والتحفيز فقط. */
+    val name: String = "",
     val sex: Sex,
     val age: Int,
     val heightCm: Double,

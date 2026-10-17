@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sarat.app.data.Meal
 import com.sarat.app.data.gemini.Verdict
+import com.sarat.app.domain.Motivation
 import com.sarat.app.ui.components.CalorieRing
 import com.sarat.app.ui.components.MacroBar
 import com.sarat.app.ui.components.MainBottomBar
@@ -81,8 +82,12 @@ fun HomeScreen(
     onPhoto: (Uri) -> Unit,
     onText: () -> Unit,
     onWeighIn: () -> Unit,
+    showWelcome: Boolean,
+    onWelcomeShown: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+    // رقم عشوائي لكل فتحة للتطبيق حتى تتنوع عبارات التحفيز
+    val seed = remember { kotlin.random.Random.nextInt(1000) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var pendingUri by rememberSaveable { mutableStateOf<String?>(null) }
@@ -112,27 +117,39 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(Dates.longDay(s.today), fontSize = 13.sp, color = C.Muted)
-                            Text("يومك", style = MaterialTheme.typography.headlineSmall)
-                        }
-                        IconButton(onClick = { scope.launch { AppSharer.share(context) } }) {
-                            Icon(Icons.Outlined.Share, contentDescription = "شارك التطبيق مع أصدقائك", tint = C.Green)
-                        }
-                        IconButton(onClick = onApiKey) {
-                            Icon(Icons.Outlined.Key, contentDescription = "إعدادات Gemini", tint = C.Muted)
-                        }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(Dates.longDay(s.today), fontSize = 13.sp, color = C.Muted, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { scope.launch { AppSharer.share(context) } }) {
+                        Icon(Icons.Outlined.Share, contentDescription = "شارك التطبيق مع أصدقائك", tint = C.Green)
                     }
-                    if (s.profile.goals.isNotEmpty()) {
-                        Text(
-                            "هدفك: " + s.profile.goals.joinToString(" + ") { it.label },
-                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(C.GreenSoft)
-                                .padding(horizontal = 10.dp, vertical = 3.dp),
-                            color = C.GreenDark, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                        )
+                    IconButton(onClick = onApiKey) {
+                        Icon(Icons.Outlined.Key, contentDescription = "إعدادات Gemini", tint = C.Muted)
                     }
+                }
+            }
+
+            item {
+                val minute = Dates.nowMinute()
+                WelcomeCard(
+                    greeting = Motivation.greeting(s.profile.name, minute),
+                    line = Motivation.line(motivationContext(s, minute), seed),
+                    streak = s.streak,
+                    minuteOfDay = minute,
+                )
+            }
+
+            if (s.profile.name.isBlank()) {
+                item { AddNameBanner { onTab(Tab.PROFILE) } }
+            }
+
+            if (s.profile.goals.isNotEmpty()) {
+                item {
+                    Text(
+                        "هدفك: " + s.profile.goals.joinToString(" + ") { it.label },
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(C.GreenSoft)
+                            .padding(horizontal = 10.dp, vertical = 3.dp),
+                        color = C.GreenDark, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    )
                 }
             }
 
@@ -228,6 +245,15 @@ fun HomeScreen(
         }
     }
 
+    val ws = state
+    if (showWelcome && ws != null) {
+        WelcomeOverlay(
+            title = Motivation.welcomeTitle(ws.profile.name),
+            line = Motivation.line(motivationContext(ws, Dates.nowMinute()), seed),
+            onDone = onWelcomeShown,
+        )
+    }
+
     toDelete?.let { meal ->
         AlertDialog(
             onDismissRequest = { toDelete = null },
@@ -240,6 +266,16 @@ fun HomeScreen(
         )
     }
 }
+
+private fun motivationContext(s: HomeState, minute: Int) = Motivation.Context(
+    name = s.profile.name,
+    sex = s.profile.sex,
+    minuteOfDay = minute,
+    consumed = s.consumed,
+    target = s.plan.dailyTarget,
+    streak = s.streak,
+    mealsToday = s.meals.size,
+)
 
 @Composable
 private fun Summary(label: String, value: String, modifier: Modifier) {

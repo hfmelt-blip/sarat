@@ -26,6 +26,7 @@ class OnboardingViewModel(
     var step by mutableIntStateOf(1)
         private set
 
+    var name by mutableStateOf("")
     var sex by mutableStateOf(Sex.MALE)
     var age by mutableStateOf("")
     var height by mutableStateOf("")
@@ -48,6 +49,7 @@ class OnboardingViewModel(
             val latest = repo.weights.first().lastOrNull()?.kg
             if (p != null) {
                 existing = p
+                name = p.name
                 sex = p.sex
                 age = p.age.toString()
                 height = p.heightCm.fmt()
@@ -75,7 +77,7 @@ class OnboardingViewModel(
     val weightError: String? get() = weightN?.let { if (it !in 35.0..300.0) "تأكد من الوزن" else null }
 
     val step1Valid: Boolean
-        get() = ageN != null && heightN != null && weightN != null &&
+        get() = name.isNotBlank() && ageN != null && heightN != null && weightN != null &&
             ageError == null && heightError == null && weightError == null
 
     val step2Valid: Boolean
@@ -115,6 +117,7 @@ class OnboardingViewModel(
         val today = Dates.todayEpoch()
         val prev = existing
         return UserProfile(
+            name = name.trim(),
             sex = sex,
             age = ageN!!,
             heightCm = heightN!!,

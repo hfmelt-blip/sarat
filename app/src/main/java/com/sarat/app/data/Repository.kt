@@ -92,6 +92,7 @@ class Repository(private val db: AppDatabase) {
     )
 
     private fun ProfileEntity.toDomain() = UserProfile(
+        name = name,
         sex = Sex.valueOf(sex),
         age = age,
         heightCm = heightCm,
@@ -107,6 +108,7 @@ class Repository(private val db: AppDatabase) {
     )
 
     private fun UserProfile.toEntity() = ProfileEntity(
+        name = name.trim(),
         sex = sex.name,
         age = age,
         heightCm = heightCm,

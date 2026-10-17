@@ -27,10 +27,10 @@ object AppSharer {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = MIME_APK
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "تطبيق سعرات")
+            putExtra(Intent.EXTRA_SUBJECT, "تطبيق شد الهمة")
             putExtra(
                 Intent.EXTRA_TEXT,
-                "جرّب تطبيق «سعرات»: صوّر وجبتك ويحسب سعراتها ويقيّمها حسب هدفك. " +
+                "جرّب تطبيق «شد الهمة»: صوّر وجبتك ويحسب سعراتها ويقيّمها حسب هدفك. " +
                     "ثبّت الملف المرفق، وإذا طلب الموبايل وافق على التثبيت من هذا المصدر.",
             )
             clipData = ClipData.newRawUri("Sarat.apk", uri)

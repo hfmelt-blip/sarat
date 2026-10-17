@@ -28,6 +28,9 @@ import com.sarat.app.ui.progress.ProgressViewModel
 import com.sarat.app.ui.settings.ApiKeyScreen
 import com.sarat.app.ui.settings.ApiKeyViewModel
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 object Routes {
@@ -59,6 +62,9 @@ fun AppNav(hasProfile: Boolean) {
     val nav = rememberNavController()
     val c = container()
     val app = LocalContext.current.applicationContext as Application
+
+    // شاشة الترحيب تطلع مرة وحدة كل ما ينفتح التطبيق
+    var welcomed by rememberSaveable { mutableStateOf(false) }
 
     NavHost(nav, startDestination = if (hasProfile) Routes.HOME else Routes.ONBOARDING) {
 
@@ -104,6 +110,8 @@ fun AppNav(hasProfile: Boolean) {
                 onPhoto = { uri -> nav.navigate(Routes.mealPhoto(uri)) },
                 onText = { nav.navigate(Routes.MEAL_TEXT) },
                 onWeighIn = { nav.goTab(Tab.PROGRESS) },
+                showWelcome = !welcomed,
+                onWelcomeShown = { welcomed = true },
             )
         }
 

@@ -22,14 +22,29 @@ android {
         applicationId = "com.sarat.app"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // رقم النسخة يزيد تلقائياً مع كل بناء على GitHub
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "1.0.$build"
 
         buildConfigField("String", "GEMINI_API_KEY", "\"${localProps.getProperty("GEMINI_API_KEY", "")}\"")
         buildConfigField("String", "GEMINI_MODEL", "\"${localProps.getProperty("GEMINI_MODEL", "gemini-3.8-flash")}\"")
     }
 
+    // مفتاح توقيع ثابت حتى كل نسخة جديدة تثبت فوق القديمة بدون ما تنمسح البيانات
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("sarat.keystore")
+            storePassword = "sarat-pass"
+            keyAlias = "sarat"
+            keyPassword = "sarat-pass"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

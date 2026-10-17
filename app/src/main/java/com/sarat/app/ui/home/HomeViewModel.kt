@@ -27,6 +27,7 @@ data class HomeState(
     val carbs: Double,
     val fat: Double,
     val weighInDue: Boolean,
+    val streak: Int,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -36,20 +37,27 @@ class HomeViewModel(private val repo: Repository) : ViewModel() {
 
     private val mealsToday = todayFlow.flatMapLatest { day -> repo.mealsForDay(day).map { day to it } }
 
-    val state: StateFlow<HomeState?> = combine(repo.profile, repo.weights, mealsToday) { profile, weights, (day, meals) ->
+    val state: StateFlow<HomeState?> = combine(
+        repo.profile, repo.weights, mealsToday, repo.dailyTotals,
+    ) { profile, weights, (day, meals), totals ->
         if (profile == null) return@combine null
         val current = weights.lastOrNull()?.kg ?: profile.startWeightKg
         val lastWeighIn = weights.lastOrNull()?.epochDay ?: profile.startEpochDay
+        val plan = Nutrition.plan(profile, current, day)
+        val recent = Nutrition.buildHistory(
+            totals, maxOf(profile.startEpochDay, day - 60), day, plan.dailyTarget, plan.minimumCalories,
+        )
         HomeState(
             today = day,
             profile = profile,
-            plan = Nutrition.plan(profile, current, day),
+            plan = plan,
             meals = meals,
             consumed = meals.sumOf { it.calories },
             protein = meals.sumOf { it.proteinG },
             carbs = meals.sumOf { it.carbsG },
             fat = meals.sumOf { it.fatG },
             weighInDue = Nutrition.isWeighInDue(lastWeighIn, day),
+            streak = Nutrition.currentStreak(recent),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
