@@ -49,6 +49,12 @@ interface MealDao {
     )
     fun observeFavorites(): Flow<List<MealEntity>>
 
+    @Query("UPDATE meals SET ratedFull = :full, ratedLiked = :liked WHERE id = :id")
+    suspend fun setRating(id: Long, full: Int?, liked: Int?)
+
+    @Query("SELECT title, ratedFull, ratedLiked FROM meals WHERE source = 'PLAN' AND (ratedFull IS NOT NULL OR ratedLiked IS NOT NULL) ORDER BY id DESC LIMIT 60")
+    suspend fun ratings(): List<RatingRow>
+
     @Query("UPDATE meals SET favorite = :value WHERE title = :title")
     suspend fun setFavorite(title: String, value: Boolean)
 
@@ -124,3 +130,5 @@ interface ShoppingDao {
     @Query("DELETE FROM shopping WHERE done = 1")
     suspend fun clearDone()
 }
+
+data class RatingRow(val title: String, val ratedFull: Int?, val ratedLiked: Int?)

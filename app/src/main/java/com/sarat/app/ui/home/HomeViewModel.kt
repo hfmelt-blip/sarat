@@ -76,6 +76,11 @@ class HomeViewModel(private val repo: Repository, private val thumbs: com.sarat.
         viewModelScope.launch { repo.setFavorite(meal.title, !meal.favorite) }
     }
 
+    /** تقييم خفيف للوجبة المقترحة. الضغط على نفس الاختيار مرة ثانية يلغيه. */
+    fun rate(meal: Meal, full: Boolean?, liked: Boolean?) {
+        viewModelScope.launch { repo.rateMeal(meal.id, full, liked) }
+    }
+
     fun deleteMeal(id: Long) {
         viewModelScope.launch { repo.deleteMeal(id); thumbs.delete(id) }
     }

@@ -101,6 +101,21 @@ class Repository(private val db: AppDatabase) {
         )
     }
 
+    // ───── تقييم الوجبات المقترحة ─────
+
+    suspend fun rateMeal(id: Long, full: Boolean?, liked: Boolean?) =
+        db.mealDao().setRating(id, full?.let { if (it) 1 else 0 }, liked?.let { if (it) 1 else 0 })
+
+    /** آخر تقييم لكل وجبة هو اللي يحسب. */
+    suspend fun planFeedback(): PlanFeedback {
+        val latest = db.mealDao().ratings().distinctBy { dishKey(it.title) }
+        return PlanFeedback(
+            disliked = latest.filter { it.ratedLiked == 0 }.map { it.title }.take(10),
+            liked = latest.filter { it.ratedLiked == 1 }.map { it.title }.take(10),
+            hungry = latest.filter { it.ratedFull == 0 }.map { it.title }.take(10),
+        )
+    }
+
     // ───── الوصفات المحفوظة ─────
 
     val recipes: Flow<List<SavedRecipe>> = db.recipeDao().observeAll().map { list -> list.mapNotNull { it.toRecipe() } }
@@ -170,6 +185,8 @@ class Repository(private val db: AppDatabase) {
         source = source,
         favorite = favorite,
         items = runCatching { json.decodeFromString(itemsSerializer, itemsJson) }.getOrDefault(emptyList()),
+        full = ratedFull?.let { it == 1 },
+        liked = ratedLiked?.let { it == 1 },
     )
 
     private fun ProfileEntity.toDomain() = UserProfile(
@@ -217,7 +234,18 @@ data class Meal(
     val source: String,
     val favorite: Boolean = false,
     val items: List<FoodItem>,
+    val full: Boolean? = null,
+    val liked: Boolean? = null,
 )
+
+/** ملخص تقييمات الوجبات المقترحة، حتى تتحسن الاقتراحات الجاية. */
+data class PlanFeedback(
+    val disliked: List<String> = emptyList(),
+    val liked: List<String> = emptyList(),
+    val hungry: List<String> = emptyList(),
+) {
+    val isEmpty get() = disliked.isEmpty() && liked.isEmpty() && hungry.isEmpty()
+}
 
 /** مفتاح موحّد لاسم الوجبة: يتجاهل التشكيل والهمزات والتاء المربوطة والمسافات الزايدة. */
 fun dishKey(name: String): String = name.trim().lowercase()

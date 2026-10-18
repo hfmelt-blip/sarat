@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ProfileEntity::class, MealEntity::class, WeightEntity::class, CorrectionEntity::class, RecipeEntity::class, ShoppingEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -46,6 +46,14 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /** النسخة ٥: الوصفات المحفوظة وقائمة المشتريات. */
+        /** النسخة ٦: تقييم الوجبات المقترحة (شبعت؟ عجبتك؟). */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE meals ADD COLUMN ratedFull INTEGER")
+                db.execSQL("ALTER TABLE meals ADD COLUMN ratedLiked INTEGER")
+            }
+        }
+
         private val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -61,7 +69,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "sarat.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
     }
 }

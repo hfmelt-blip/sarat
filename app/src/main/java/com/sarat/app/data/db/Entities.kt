@@ -44,6 +44,10 @@ data class MealEntity(
     val source: String,
     /** المستخدم ثبّتها كوجبة مفضلة. */
     @ColumnInfo(defaultValue = "0") val favorite: Boolean = false,
+    /** للوجبات المقترحة: شبعت؟ (1 نعم، 0 لا، null ما قيّم). */
+    val ratedFull: Int? = null,
+    /** للوجبات المقترحة: عجبتك؟ */
+    val ratedLiked: Int? = null,
 )
 
 @Entity(tableName = "weights", indices = [Index(value = ["epochDay"], unique = true)])

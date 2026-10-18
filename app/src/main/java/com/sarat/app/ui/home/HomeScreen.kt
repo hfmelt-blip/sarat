@@ -1,5 +1,12 @@
 package com.sarat.app.ui.home
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -319,7 +326,7 @@ fun HomeScreen(
                 }
             }
             items(s.meals, key = { it.id }) { meal ->
-                MealRow(meal, onDelete = { toDelete = meal }, onStar = { vm.toggleFavorite(meal) })
+                MealRow(meal, onDelete = { toDelete = meal }, onStar = { vm.toggleFavorite(meal) }, onRate = { f, l -> vm.rate(meal, f, l) })
             }
         }
     }
@@ -461,13 +468,17 @@ private fun FavoriteChip(meal: Meal, onClick: () -> Unit) {
 }
 
 @Composable
-private fun MealRow(meal: Meal, onDelete: () -> Unit, onStar: () -> Unit) {
-    Row(
+private fun MealRow(meal: Meal, onDelete: () -> Unit, onStar: () -> Unit, onRate: (Boolean?, Boolean?) -> Unit) {
+    Column(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(C.Card)
-            .border(1.dp, C.Line, RoundedCornerShape(16.dp))
+            .border(1.dp, C.Line, RoundedCornerShape(16.dp)),
+    ) {
+    Row(
+        Modifier
+            .fillMaxWidth()
             .padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -499,4 +510,34 @@ private fun MealRow(meal: Meal, onDelete: () -> Unit, onStar: () -> Unit) {
             Icon(Icons.Outlined.DeleteOutline, contentDescription = "حذف ${meal.title}", tint = C.Muted)
         }
     }
+    if (meal.source == "PLAN") {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            RatePair("شبعت؟", meal.full) { v -> onRate(if (meal.full == v) null else v, meal.liked) }
+            Spacer(Modifier.width(10.dp))
+            RatePair("عجبتك؟", meal.liked) { v -> onRate(meal.full, if (meal.liked == v) null else v) }
+        }
+    }
+    }
+}
+
+/** سؤال اختياري بإبهامين، والضغط مرة ثانية يلغي الاختيار. */
+@Composable
+private fun RatePair(label: String, value: Boolean?, onPick: (Boolean) -> Unit) {
+    Text(label, fontSize = 12.sp, color = C.Muted)
+    Icon(
+        if (value == true) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
+        contentDescription = "$label نعم",
+        tint = if (value == true) C.Green else C.Muted,
+        modifier = Modifier.size(34.dp).clip(CircleShape).clickable { onPick(true) }.padding(8.dp),
+    )
+    Icon(
+        if (value == false) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
+        contentDescription = "$label لا",
+        tint = if (value == false) C.OrangeText else C.Muted,
+        modifier = Modifier.size(34.dp).clip(CircleShape).clickable { onPick(false) }.padding(8.dp),
+    )
 }

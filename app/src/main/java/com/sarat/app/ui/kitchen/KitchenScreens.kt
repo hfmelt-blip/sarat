@@ -1,5 +1,9 @@
 package com.sarat.app.ui.kitchen
 
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -206,31 +210,57 @@ fun RecipeBody(s: MealSuggestion) {
 // ───── الوصفات المحفوظة ─────
 
 @Composable
-fun RecipesScreen(vm: RecipesViewModel, onOpen: (Long) -> Unit, onBack: () -> Unit) {
+fun RecipesScreen(
+    vm: RecipesViewModel,
+    onOpen: (Long) -> Unit,
+    onOpenBuiltin: (String) -> Unit,
+    onAdd: () -> Unit,
+    onBack: () -> Unit,
+) {
     val saved by vm.saved.collectAsStateWithLifecycle()
     LazyColumn(
         Modifier.fillMaxSize().background(C.Ground).statusBarsPadding(),
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item { KitchenHeader("وصفاتي", "تنفتح بدون إنترنت وبدون Gemini", onBack) }
+        item {
+            KitchenHeader("وصفاتي", "تنفتح بدون إنترنت وبدون Gemini", onBack) {
+                IconButton(onClick = onAdd, modifier = Modifier.size(44.dp).clip(CircleShape).background(C.Green)) {
+                    Icon(Icons.Outlined.Add, contentDescription = "أضف وصفة", tint = Color.White)
+                }
+            }
+        }
+        item { SectionTitle("المحفوظة") }
         if (saved.isEmpty()) {
             item {
                 Text(
-                    "ما عندك وصفات محفوظة بعد. من «شنو آكل؟» اضغط «احفظ الوصفة» على أي اقتراح يعجبك.",
+                    "ما عندك وصفات محفوظة بعد. اضغط + حتى تكتب وصفتك، أو من «شنو آكل؟» اضغط «احفظ الوصفة» على أي اقتراح يعجبك.",
                     color = C.Muted, fontSize = 14.sp, lineHeight = 22.sp,
                 )
             }
         }
         items(saved, key = { it.id }) { r ->
-            RecipeCard(r.recipe.dishName, r.recipe.totalCalories, r.recipe.prepMinutes, null) { onOpen(r.id) }
+            RecipeCard(r.recipe.dishName, r.recipe.totalCalories, r.recipe.prepMinutes, if (r.source == "USER") "وصفتك" else null) { onOpen(r.id) }
+        }
+        item { SectionTitle("وصفات عراقية") }
+        item {
+            Text("لحصة وحدة بكميات خفيفة. السعرات تقريبية.", color = C.Muted, fontSize = 13.sp)
+        }
+        items(com.sarat.app.data.BuiltinRecipes.all, key = { "b-" + it.id }) { r ->
+            RecipeCard(r.name, r.kcal, r.prepMinutes, r.slots.sortedBy { it.ordinal }.joinToString("، ") { it.label }) { onOpenBuiltin(r.id) }
         }
     }
 }
 
 @Composable
-fun RecipeDetailScreen(vm: RecipeDetailViewModel, onBack: () -> Unit, onEaten: () -> Unit) {
+private fun SectionTitle(text: String) {
+    Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = C.Ink, modifier = Modifier.padding(top = 6.dp))
+}
+
+@Composable
+fun RecipeDetailScreen(vm: RecipeDetailViewModel, onBack: () -> Unit, onEaten: () -> Unit, onEdit: () -> Unit) {
     val context = LocalContext.current
+    LaunchedEffect(Unit) { vm.reload() }
     var confirmDelete by remember { mutableStateOf(false) }
     val s = vm.scaled
     LaunchedEffect(vm.message) {
@@ -241,9 +271,14 @@ fun RecipeDetailScreen(vm: RecipeDetailViewModel, onBack: () -> Unit, onEaten: (
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            KitchenHeader("الوصفة", null, onBack) {
-                IconButton(onClick = { confirmDelete = true }) {
-                    Icon(Icons.Outlined.DeleteOutline, contentDescription = "حذف الوصفة", tint = C.Muted)
+            KitchenHeader("الوصفة", if (vm.builtinId != null) "وصفة عراقية · التعديل يحفظ نسخة إلك" else null, onBack) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Outlined.Edit, contentDescription = "عدّل الوصفة", tint = C.Muted)
+                }
+                if (vm.builtinId == null) {
+                    IconButton(onClick = { confirmDelete = true }) {
+                        Icon(Icons.Outlined.DeleteOutline, contentDescription = "حذف الوصفة", tint = C.Muted)
+                    }
                 }
             }
             if (s == null) {
@@ -358,6 +393,95 @@ fun ShoppingScreen(vm: ShoppingViewModel, onBack: () -> Unit) {
             item {
                 TextButton(onClick = vm::clearBought) { Text("امسح اللي اشتريته", color = C.Muted) }
             }
+        }
+    }
+}
+
+// ───── إضافة وتعديل وصفة ─────
+
+@Composable
+fun RecipeEditScreen(vm: RecipeEditViewModel, onBack: () -> Unit, onSaved: (Long) -> Unit) {
+    Column(Modifier.fillMaxSize().background(C.Ground).statusBarsPadding().imePadding()) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            KitchenHeader(if (vm.isNew) "وصفة جديدة" else "تعديل الوصفة", "المقادير لحصة وحدة", onBack)
+            OutlinedTextField(
+                value = vm.title, onValueChange = { vm.title = it.take(60) },
+                label = { Text("اسم الأكلة") }, singleLine = true,
+                shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = vm.prep, onValueChange = { v -> vm.prep = v.filter { it.isDigit() }.take(3) },
+                label = { Text("وقت التحضير بالدقايق (اختياري)") }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth(),
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("المقادير", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = C.Ink, modifier = Modifier.weight(1f))
+                Text("المجموع ${vm.total} سعرة", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = C.Green)
+            }
+            vm.rows.forEachIndexed { i, r ->
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(C.Card)
+                        .border(1.dp, C.Line, RoundedCornerShape(14.dp)).padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = r.name, onValueChange = { vm.updateName(i, it.take(50)) },
+                            placeholder = { Text("المكوّن (مثلاً: عدس)") }, singleLine = true,
+                            shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = { vm.removeRow(i) }) {
+                            Icon(Icons.Outlined.DeleteOutline, contentDescription = "احذف المكوّن", tint = C.Muted)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = r.amount, onValueChange = { vm.updateAmount(i, it.take(40)) },
+                            placeholder = { Text("الكمية (نص كوب)") }, singleLine = true,
+                            shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1.4f),
+                        )
+                        OutlinedTextField(
+                            value = r.kcal, onValueChange = { vm.updateKcal(i, it) },
+                            placeholder = { Text("سعرات") }, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+            TextButton(onClick = vm::addRow) {
+                Icon(Icons.Outlined.Add, contentDescription = null, tint = C.Green, modifier = Modifier.size(18.dp))
+                Text(" أضف مكوّن", color = C.Green, fontWeight = FontWeight.SemiBold)
+            }
+            OutlinedButton(
+                onClick = vm::calculate, enabled = !vm.loading && vm.rows.any { it.name.isNotBlank() },
+                shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().height(48.dp),
+            ) {
+                if (vm.loading) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = C.Green)
+                    Text("  نحسب…", color = C.Green)
+                } else {
+                    Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = C.Green, modifier = Modifier.size(18.dp))
+                    Text("  احسب السعرات بـ Gemini", color = C.Green, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Text("أو اكتب السعرات بنفسك إذا تعرفها.", fontSize = 12.sp, color = C.Muted)
+            vm.message?.let { Text(it, color = C.GreenDark, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+
+            Text("طريقة التحضير", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = C.Ink)
+            OutlinedTextField(
+                value = vm.steps, onValueChange = { vm.steps = it.take(2000) },
+                placeholder = { Text("كل خطوة بسطر") }, minLines = 4,
+                shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Box(Modifier.fillMaxWidth().background(C.Ground).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
+            PrimaryButton("احفظ الوصفة", { vm.save(onSaved) }, enabled = vm.canSave)
         }
     }
 }

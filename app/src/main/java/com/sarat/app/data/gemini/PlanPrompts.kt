@@ -95,6 +95,7 @@ Rules:
         previous: MealSuggestion?,
         change: String?,
         exclude: List<String>,
+        feedback: com.sarat.app.data.PlanFeedback? = null,
     ): String = buildString {
         appendLine("Meal type: ${budget.slot.english}")
         appendLine("Current time: ${hhmm(nowMinute)}")
@@ -109,6 +110,14 @@ Rules:
         appendLine("Ingredients at home (Arabic): $pantry")
         if (!wish.isNullOrBlank()) appendLine("The user wants this dish: $wish")
         if (exclude.isNotEmpty()) appendLine("Suggest something different from: ${exclude.joinToString()}")
+        if (feedback != null && !feedback.isEmpty) {
+            if (feedback.disliked.isNotEmpty())
+                appendLine("The user did NOT like these earlier suggestions, avoid them and similar dishes: ${feedback.disliked.joinToString()}")
+            if (feedback.liked.isNotEmpty())
+                appendLine("The user liked these earlier suggestions (similar styles are welcome): ${feedback.liked.joinToString()}")
+            if (feedback.hungry.isNotEmpty())
+                appendLine("The user was still hungry after: ${feedback.hungry.joinToString()}. Make meals more filling within the same calories: more protein, fibre, vegetables and volume, fewer calorie-dense small portions.")
+        }
         if (previous != null && !change.isNullOrBlank()) {
             appendLine("Previous suggestion: ${previous.dishName} — " +
                 previous.ingredients.joinToString { "${it.name} ${it.amount}" })

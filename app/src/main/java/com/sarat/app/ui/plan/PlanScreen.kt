@@ -153,6 +153,15 @@ fun PlanScreen(
                 Icon(Icons.Outlined.Restaurant, contentDescription = null)
                 Text("  اقترح لي وجبة", fontWeight = FontWeight.Bold)
             }
+            OutlinedButton(
+                onClick = vm::suggestOffline,
+                enabled = !vm.loading && vm.budget != null,
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+            ) {
+                Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = C.Green, modifier = Modifier.size(18.dp))
+                Text("  اقترح من الوصفات المحفوظة (بدون إنترنت)", color = C.Green, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            }
 
             when {
                 vm.loading -> MealResultSkeleton("نجهّز لك وجبة من الموجود…")
@@ -212,6 +221,13 @@ private fun SuggestionContent(vm: PlanViewModel, s: MealSuggestion) {
         return
     }
     val budget = vm.budget
+    if (vm.offline) {
+        Text(
+            "من الوصفات المحفوظة، بدون إنترنت",
+            color = C.GreenDark, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(C.GreenSoft).padding(horizontal = 10.dp, vertical = 5.dp),
+        )
+    }
     Column(
         Modifier
             .fillMaxWidth()

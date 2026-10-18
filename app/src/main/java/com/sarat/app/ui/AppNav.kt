@@ -50,6 +50,10 @@ object Routes {
     const val RECIPE = "recipe/{id}"
     const val SHOPPING = "shopping"
     fun recipe(id: Long) = "recipe/$id"
+    const val BUILTIN = "builtin/{bid}"
+    fun builtin(bid: String) = "builtin/$bid"
+    const val RECIPE_EDIT = "recipe_edit?id={id}&bid={bid}"
+    fun recipeEdit(id: Long = 0, bid: String = "") = "recipe_edit?id=$id&bid=$bid"
     const val MEAL_PHOTO = "meal/photo?uri={uri}"
     fun mealPhoto(uri: Uri) = "meal/photo?uri=${Uri.encode(uri.toString())}"
 }
@@ -186,7 +190,13 @@ fun AppNav(hasProfile: Boolean, startAction: String? = null) {
 
         composable(Routes.RECIPES) {
             val vm = viewModel { com.sarat.app.ui.kitchen.RecipesViewModel(c.repository) }
-            com.sarat.app.ui.kitchen.RecipesScreen(vm, onOpen = { id -> nav.navigate(Routes.recipe(id)) }, onBack = { nav.popBackStack() })
+            com.sarat.app.ui.kitchen.RecipesScreen(
+                vm,
+                onOpen = { id -> nav.navigate(Routes.recipe(id)) },
+                onOpenBuiltin = { bid -> nav.navigate(Routes.builtin(bid)) },
+                onAdd = { nav.navigate(Routes.recipeEdit()) },
+                onBack = { nav.popBackStack() },
+            )
         }
 
         composable(Routes.RECIPE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
@@ -196,6 +206,42 @@ fun AppNav(hasProfile: Boolean, startAction: String? = null) {
                 vm,
                 onBack = { nav.popBackStack() },
                 onEaten = { nav.popBackStack(Routes.HOME, inclusive = false) },
+                onEdit = { nav.navigate(Routes.recipeEdit(id = id)) },
+            )
+        }
+
+        composable(Routes.BUILTIN, arguments = listOf(navArgument("bid") { type = NavType.StringType })) { entry ->
+            val bid = entry.arguments?.getString("bid").orEmpty()
+            val vm = viewModel(key = "builtin-$bid") {
+                com.sarat.app.ui.kitchen.RecipeDetailViewModel(c.repository, 0L, builtinId = bid, pantry = c.prefs.pantry)
+            }
+            com.sarat.app.ui.kitchen.RecipeDetailScreen(
+                vm,
+                onBack = { nav.popBackStack() },
+                onEaten = { nav.popBackStack(Routes.HOME, inclusive = false) },
+                onEdit = { nav.navigate(Routes.recipeEdit(bid = bid)) },
+            )
+        }
+
+        composable(
+            Routes.RECIPE_EDIT,
+            arguments = listOf(
+                navArgument("id") { type = NavType.LongType; defaultValue = 0L },
+                navArgument("bid") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            val id = entry.arguments?.getLong("id") ?: 0L
+            val bid = entry.arguments?.getString("bid").orEmpty()
+            val vm = viewModel(key = "edit-$id-$bid") {
+                com.sarat.app.ui.kitchen.RecipeEditViewModel(c.repository, c.gemini, id, bid.ifBlank { null })
+            }
+            com.sarat.app.ui.kitchen.RecipeEditScreen(
+                vm,
+                onBack = { nav.popBackStack() },
+                onSaved = { newId ->
+                    if (id != 0L) nav.popBackStack()
+                    else nav.navigate(Routes.recipe(newId)) { popUpTo(Routes.RECIPES) }
+                },
             )
         }
 
