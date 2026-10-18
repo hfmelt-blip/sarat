@@ -73,3 +73,12 @@ interface WeightDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(weight: WeightEntity)
 }
+
+@Dao
+interface CorrectionDao {
+    @Query("SELECT * FROM corrections WHERE dishKey = :key")
+    suspend fun get(key: String): CorrectionEntity?
+
+    @Upsert
+    suspend fun upsert(c: CorrectionEntity)
+}

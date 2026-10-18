@@ -57,3 +57,12 @@ data class DayTotal(
     @ColumnInfo(name = "epochDay") val epochDay: Long,
     @ColumnInfo(name = "total") val total: Int,
 )
+
+/** تصحيحات المستخدم لوجبة معيّنة (لحصة وحدة)، حتى نقترحها المرة الجاية. */
+@Entity(tableName = "corrections")
+data class CorrectionEntity(
+    @PrimaryKey val dishKey: String,
+    val title: String,
+    val itemsJson: String,
+    val updatedAt: Long,
+)

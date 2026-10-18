@@ -80,6 +80,27 @@ class Repository(private val db: AppDatabase) {
         return db.mealDao().insert(m.copy(id = 0, epochDay = epochDay, minuteOfDay = minuteOfDay))
     }
 
+    // ───── تصحيحات المستخدم ─────
+
+    /** المكونات اللي صححها المستخدم لهذي الوجبة قبل (لحصة وحدة)، إن وُجدت. */
+    suspend fun getCorrection(dishName: String): List<FoodItem>? {
+        val key = dishKey(dishName).ifBlank { return null }
+        val c = db.correctionDao().get(key) ?: return null
+        return runCatching { json.decodeFromString(itemsSerializer, c.itemsJson) }.getOrNull()?.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun saveCorrection(dishName: String, itemsPerServing: List<FoodItem>) {
+        val key = dishKey(dishName).ifBlank { return }
+        db.correctionDao().upsert(
+            com.sarat.app.data.db.CorrectionEntity(
+                dishKey = key,
+                title = dishName.trim(),
+                itemsJson = json.encodeToString(itemsSerializer, itemsPerServing),
+                updatedAt = System.currentTimeMillis(),
+            )
+        )
+    }
+
     // ───── الوزن ─────
 
     val weights: Flow<List<WeightEntity>> = db.weightDao().observeAll()
@@ -150,3 +171,11 @@ data class Meal(
     val favorite: Boolean = false,
     val items: List<FoodItem>,
 )
+
+/** مفتاح موحّد لاسم الوجبة: يتجاهل التشكيل والهمزات والتاء المربوطة والمسافات الزايدة. */
+fun dishKey(name: String): String = name.trim().lowercase()
+    .replace(Regex("[\\u064B-\\u065F\\u0640]"), "")
+    .replace(Regex("[أإآ]"), "ا")
+    .replace('ة', 'ه')
+    .replace('ى', 'ي')
+    .replace(Regex("\\s+"), " ")

@@ -1,6 +1,22 @@
 package com.sarat.app.ui.meal
 
 import android.net.Uri
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
+import com.sarat.app.data.QuickItems
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -76,13 +92,7 @@ fun MealPhotoScreen(vm: MealViewModel, uri: Uri, onBack: () -> Unit, onSaved: ()
             when {
                 vm.loading -> MealResultSkeleton("نحلل الصورة ونحسب السعرات…")
                 vm.error != null -> ErrorBox(vm.error!!, vm::retry)
-                vm.analysis != null -> ResultContent(
-                    analysis = vm.analysis!!,
-                    goalsLabel = vm.goals.joinToString(" + ") { it.label },
-                    remainingAfter = vm.remainingAfter,
-                    onScale = vm::scaleItem,
-                    onRemove = vm::removeItem,
-                )
+                vm.analysis != null -> ResultContent(vm, vm.analysis!!)
             }
         }
         SaveBar(vm, onSaved, secondary = "إعادة التحليل", onSecondary = vm::retry)
@@ -131,13 +141,7 @@ fun TextEntryScreen(vm: MealViewModel, onBack: () -> Unit, onSaved: () -> Unit) 
             when {
                 vm.loading -> MealResultSkeleton("نحسب السعرات ونقيّم الوجبة…")
                 vm.error != null -> ErrorBox(vm.error!!, vm::retry)
-                vm.analysis != null -> ResultContent(
-                    analysis = vm.analysis!!,
-                    goalsLabel = vm.goals.joinToString(" + ") { it.label },
-                    remainingAfter = vm.remainingAfter,
-                    onScale = vm::scaleItem,
-                    onRemove = vm::removeItem,
-                )
+                vm.analysis != null -> ResultContent(vm, vm.analysis!!)
             }
         }
         if (vm.analysis != null) SaveBar(vm, onSaved, secondary = null, onSecondary = {})
@@ -147,30 +151,69 @@ fun TextEntryScreen(vm: MealViewModel, onBack: () -> Unit, onSaved: () -> Unit) 
 // ───── مكونات مشتركة ─────
 
 @Composable
-private fun ResultContent(
-    analysis: MealAnalysis,
-    goalsLabel: String,
-    remainingAfter: Int,
-    onScale: (Int, Double) -> Unit,
-    onRemove: (Int) -> Unit,
-) {
-    if (!analysis.isFood || analysis.items.isEmpty()) {
+private fun ResultContent(vm: MealViewModel, analysis: MealAnalysis) {
+    if (!analysis.isFood) {
         ErrorBox("ما لقينا أكل واضح. جرّب صورة أقرب أو اكتب الوجبة بالكلمات.", null)
         return
     }
+    var showAdd by remember { mutableStateOf(false) }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(analysis.mealName, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp))
-            Text("تقدير تقريبي · عدّل الكميات إذا تحتاج", fontSize = 12.sp, color = C.Muted)
-        }
+    Text("راجع قبل التسجيل", fontSize = 13.sp, color = C.Muted, fontWeight = FontWeight.SemiBold)
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = analysis.mealName,
+            onValueChange = vm::rename,
+            label = { Text("اسم الوجبة") },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.weight(1f),
+        )
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("${analysis.totalCalories}", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text("${analysis.totalCalories}", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = C.Ink)
             Text("سعرة", fontSize = 12.sp, color = C.Muted)
         }
     }
 
-    VerdictCard(Verdict.from(analysis.verdict), goalsLabel, analysis.verdictReason, analysis.suggestion)
+    // تصحيح سابق لنفس الوجبة
+    val saved = vm.savedCorrection
+    if (saved != null && !vm.correctionApplied) {
+        val savedKcal = (saved.sumOf { it.calories } * vm.portion).toInt()
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(C.InfoBg)
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Outlined.History, contentDescription = null, tint = C.InfoIcon, modifier = Modifier.size(20.dp))
+                Text("صححت هذي الوجبة قبل", fontWeight = FontWeight.Bold, color = C.InfoText, fontSize = 14.sp)
+            }
+            Text(
+                "تقديرك السابق: $savedKcal سعرة بدل ${analysis.totalCalories}. " +
+                    saved.joinToString("، ") { it.name },
+                color = C.InfoText, fontSize = 13.sp, lineHeight = 20.sp,
+            )
+            Button(
+                onClick = vm::applyCorrection,
+                colors = ButtonDefaults.buttonColors(containerColor = C.InfoIcon),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text("استخدم تقديري السابق", fontWeight = FontWeight.SemiBold) }
+        }
+    }
+
+    // عدد الحصص
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("الكمية", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = C.Ink)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(0.5 to "نص", 1.0 to "حصة", 1.5 to "حصة ونص", 2.0 to "حصتين", 3.0 to "٣ حصص").forEach { (p, label) ->
+                PortionChip(label, vm.portion == p) { vm.setPortion(p) }
+            }
+        }
+    }
+
+    VerdictCard(Verdict.from(analysis.verdict), vm.goals.joinToString(" + ") { it.label }, analysis.verdictReason, analysis.suggestion)
 
     if (analysis.medicationNote.isNotBlank()) {
         Row(
@@ -182,12 +225,23 @@ private fun ResultContent(
         }
     }
 
+    Text("المكونات (تقديرية، عدّلها إذا تحتاج)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = C.Ink)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         analysis.items.forEachIndexed { i, item ->
-            ItemRow(item, onMinus = { onScale(i, 0.75) }, onPlus = { onScale(i, 1.25) }, onRemove = { onRemove(i) })
+            ItemRow(item, onMinus = { vm.scaleItem(i, 0.75) }, onPlus = { vm.scaleItem(i, 1.25) }, onRemove = { vm.removeItem(i) })
         }
     }
+    OutlinedButton(
+        onClick = { showAdd = true },
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth().height(48.dp),
+    ) {
+        Icon(Icons.Outlined.Add, contentDescription = null, tint = C.Green, modifier = Modifier.size(18.dp))
+        Text("  أضف مكوّن ناقص (زيت، سكر، خبز…)", color = C.Green, fontWeight = FontWeight.SemiBold)
+    }
+    Text("الزيت والسكر غالباً ما ينشافون بالصورة، أضفهم إذا موجودين حتى يصير الحساب أدق.", fontSize = 12.sp, color = C.Muted)
 
+    val remainingAfter = vm.remainingAfter
     val over = remainingAfter < 0
     Row(
         Modifier
@@ -202,6 +256,81 @@ private fun ResultContent(
         Text(if (over) "بعد هذه الوجبة تتجاوز هدفك بـ" else "بعد هذه الوجبة يبقى لك", fontSize = 14.sp, color = color)
         Text("${kotlin.math.abs(remainingAfter)} سعرة", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = color)
     }
+
+    if (showAdd) {
+        AddItemDialog(
+            onQuick = { vm.addItem(it); showAdd = false },
+            onCustom = { name, amount, kcal -> vm.addCustom(name, amount, kcal); showAdd = false },
+            onDismiss = { showAdd = false },
+        )
+    }
+}
+
+@Composable
+private fun PortionChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    Text(
+        text,
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) C.Green else C.Card)
+            .border(1.dp, if (selected) C.Green else C.Border, shape)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        color = if (selected) Color.White else C.Ink,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AddItemDialog(
+    onQuick: (FoodItem) -> Unit,
+    onCustom: (String, String, Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var kcal by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("أضف مكوّن") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("إضافة سريعة", fontSize = 13.sp, color = C.Muted)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    QuickItems.all.forEach { item ->
+                        Text(
+                            "${item.name} · ${item.calories}",
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(C.GreenSoft)
+                                .clickable { onQuick(item) }
+                                .padding(horizontal = 10.dp, vertical = 7.dp),
+                            color = C.GreenDark, fontSize = 13.sp,
+                        )
+                    }
+                }
+                Text("أو اكتبه بنفسك", fontSize = 13.sp, color = C.Muted)
+                OutlinedTextField(name, { name = it.take(40) }, label = { Text("الاسم") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(amount, { amount = it.take(30) }, label = { Text("الكمية (اختياري)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    kcal, { kcal = it.filter(Char::isDigit).take(4) },
+                    label = { Text("السعرات") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onCustom(name, amount, kcal.toIntOrNull() ?: 0) },
+                enabled = name.isNotBlank() && (kcal.toIntOrNull() ?: 0) > 0,
+            ) { Text("أضف") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+    )
 }
 
 @Composable

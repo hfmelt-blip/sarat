@@ -8,14 +8,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [ProfileEntity::class, MealEntity::class, WeightEntity::class],
-    version = 3,
+    entities = [ProfileEntity::class, MealEntity::class, WeightEntity::class, CorrectionEntity::class],
+    version = 4,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun profileDao(): ProfileDao
     abstract fun mealDao(): MealDao
     abstract fun weightDao(): WeightDao
+    abstract fun correctionDao(): CorrectionDao
 
     companion object {
         /** النسخة ٢: إضافة اسم المستخدم بدون ما تنمسح بيانات أحد. */
@@ -32,9 +33,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** النسخة ٤: تصحيحات المستخدم للوجبات. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS corrections (dishKey TEXT NOT NULL, title TEXT NOT NULL, " +
+                        "itemsJson TEXT NOT NULL, updatedAt INTEGER NOT NULL, PRIMARY KEY(dishKey))"
+                )
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "sarat.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }

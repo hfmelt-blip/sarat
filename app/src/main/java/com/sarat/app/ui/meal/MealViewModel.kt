@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sarat.app.data.Repository
+import com.sarat.app.data.gemini.FoodItem
 import com.sarat.app.data.gemini.GeminiClient
 import com.sarat.app.data.gemini.GeminiException
 import com.sarat.app.data.gemini.MealAnalysis
@@ -59,6 +60,22 @@ class MealViewModel(
     private var started = false
 
     val remainingAfter: Int get() = remainingBefore - (analysis?.totalCalories ?: 0)
+
+    /** عدد الحصص (١ = الكمية اللي قدّرها Gemini). */
+    var portion by mutableStateOf(1.0)
+        private set
+
+    /** تصحيح سابق للمستخدم لنفس الوجبة (لحصة وحدة)، إن وُجد. */
+    var savedCorrection by mutableStateOf<List<FoodItem>?>(null)
+        private set
+    var correctionApplied by mutableStateOf(false)
+        private set
+
+    /** اسم الوجبة مثل ما سمّاها Gemini، نستخدمه مفتاح للتصحيحات. */
+    private var originalName = ""
+
+    /** المستخدم عدّل المكونات (حتى نحفظ تصحيحه). */
+    private var edited = false
 
     private suspend fun buildContext(): MealContext {
         mealDay = Dates.todayEpoch()
@@ -115,7 +132,15 @@ class MealViewModel(
         error = null
         viewModelScope.launch {
             try {
-                analysis = block()
+                val result = block()
+                analysis = result
+                portion = 1.0
+                edited = false
+                correctionApplied = false
+                originalName = result.mealName
+                savedCorrection = if (result.isFood && result.mealName.isNotBlank()) {
+                    runCatching { repo.getCorrection(result.mealName) }.getOrNull()
+                } else null
             } catch (e: GeminiException) {
                 error = e.message
             } catch (e: Exception) {
@@ -134,17 +159,62 @@ class MealViewModel(
         if (next.calories <= 0 && factor < 1) return
         items[index] = next
         analysis = a.copy(items = items)
+        edited = true
     }
 
     fun removeItem(index: Int) {
         val a = analysis ?: return
         analysis = a.copy(items = a.items.filterIndexed { i, _ -> i != index })
+        edited = true
+    }
+
+    fun rename(name: String) {
+        val a = analysis ?: return
+        analysis = a.copy(mealName = name.take(60))
+    }
+
+    /** يغيّر عدد الحصص ويكبّر أو يصغّر كل المكونات بنفس النسبة. */
+    fun setPortion(value: Double) {
+        val a = analysis ?: return
+        if (value <= 0 || value == portion) return
+        val factor = value / portion
+        analysis = a.copy(items = a.items.map { it.scaled(factor) })
+        portion = value
+    }
+
+    /** يضيف مكوّن (من الأزرار السريعة أو يدوي) بحجم حصة وحدة. */
+    fun addItem(item: FoodItem) {
+        val a = analysis ?: return
+        analysis = a.copy(items = a.items + item)
+        edited = true
+    }
+
+    fun addCustom(name: String, amount: String, calories: Int) {
+        if (name.isBlank() || calories <= 0) return
+        addItem(FoodItem(name = name.trim(), portion = amount.trim(), grams = 0, calories = calories, fit = "MODERATE"))
+    }
+
+    /** يستبدل المكونات بتقدير المستخدم السابق لنفس الوجبة. */
+    fun applyCorrection() {
+        val a = analysis ?: return
+        val saved = savedCorrection ?: return
+        analysis = a.copy(items = saved.map { it.scaled(portion) })
+        correctionApplied = true
+        edited = false
     }
 
     fun save(onSaved: () -> Unit) {
         val a = analysis ?: return
         if (a.items.isEmpty()) return
         viewModelScope.launch {
+            // نحفظ تصحيح المستخدم (لحصة وحدة) حتى نقترحه المرة الجاية لنفس الوجبة
+            if (edited && source != "PLAN") {
+                val perServing = a.items.map { it.scaled(1.0 / portion) }
+                runCatching {
+                    if (originalName.isNotBlank()) repo.saveCorrection(originalName, perServing)
+                    if (a.mealName.isNotBlank() && a.mealName != originalName) repo.saveCorrection(a.mealName, perServing)
+                }
+            }
             val id = repo.addMeal(a, mealDay, mealMinute, source)
             if (source == "PHOTO") photo?.let { runCatching { thumbs.save(id, it) } }
             onSaved()
