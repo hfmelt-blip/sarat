@@ -18,6 +18,9 @@ object Nutrition {
     /** هامش مقبول فوق الهدف اليومي قبل اعتبار اليوم "زيادة". */
     const val OVER_TOLERANCE = 0.05
 
+    /** هامش مقبول تحت الحد الأدنى: نقص بسيط بيوم واحد ما يضر، فيبقى اليوم ملتزم. */
+    const val UNDER_TOLERANCE = 0.10
+
     /** أقل عدد أيام بين قياسين حتى نعدّل الاحتياج. */
     const val MIN_CALIBRATION_DAYS = 7
 
@@ -137,17 +140,19 @@ object Nutrition {
     ): DayRecord {
         val isToday = epochDay == todayEpochDay
         val limit = (target * (1 + OVER_TOLERANCE)).roundToInt()
+        val floor = (minimum * (1 - UNDER_TOLERANCE)).roundToInt()
         val pick = abs(epochDay % 997).toInt()
         val status = when {
             consumed == 0 && !isToday -> DayStatus.NO_DATA
             consumed > limit -> DayStatus.OVER
-            isToday -> if (consumed >= minimum) DayStatus.ON_TARGET else DayStatus.IN_PROGRESS
-            consumed < minimum -> DayStatus.TOO_LOW
+            isToday -> if (consumed >= floor) DayStatus.ON_TARGET else DayStatus.IN_PROGRESS
+            consumed < floor -> DayStatus.TOO_LOW
             else -> DayStatus.ON_TARGET
         }
         val message = when (status) {
             DayStatus.ON_TARGET ->
-                if (streakAfter >= 3) "ممتاز! $streakAfter أيام ورا بعض" else praise[pick % praise.size]
+                if (consumed < minimum && !isToday) "ضمن هدفك، بس ناقص ${minimum - consumed} سعرة عن الحد الأدنى"
+                else if (streakAfter >= 3) "ممتاز! $streakAfter أيام ورا بعض" else praise[pick % praise.size]
             DayStatus.OVER -> "زدت ${consumed - target} سعرة، ${overMessages[pick % overMessages.size]}"
             DayStatus.TOO_LOW -> "أكلت أقل من الحد الآمن، جسمك يحتاج أكثر"
             DayStatus.IN_PROGRESS -> "باقي ${max(0, target - consumed)} سعرة لليوم"
