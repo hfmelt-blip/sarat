@@ -26,6 +26,8 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -95,6 +97,8 @@ fun HomeScreen(
     onPhoto: (Uri) -> Unit,
     onText: () -> Unit,
     onPlan: () -> Unit,
+    onRecipes: () -> Unit,
+    onShopping: () -> Unit,
     onWeighIn: () -> Unit,
     showWelcome: Boolean,
     onWelcomeShown: () -> Unit,
@@ -257,6 +261,13 @@ fun HomeScreen(
                 }
             }
 
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    KitchenLink("وصفاتي", Icons.AutoMirrored.Outlined.MenuBook, onRecipes, Modifier.weight(1f))
+                    KitchenLink("المشتريات", Icons.Outlined.ShoppingCart, onShopping, Modifier.weight(1f))
+                }
+            }
+
             if (!hasKey) {
                 item {
                     Row(
@@ -403,6 +414,28 @@ fun WeighInBanner(onClick: () -> Unit) {
             Text("نقارن النزول الفعلي بالمخطط ونحدّث موعد الهدف", color = C.GreenDark, fontSize = 13.sp)
         }
         Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = C.GreenDark)
+    }
+}
+
+@Composable
+private fun KitchenLink(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(C.Card)
+            .border(1.dp, C.Line, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = C.Green, modifier = Modifier.size(20.dp))
+        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
 }
 

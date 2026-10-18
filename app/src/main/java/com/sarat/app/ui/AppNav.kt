@@ -46,6 +46,10 @@ object Routes {
     const val API_KEY = "api_key"
     const val PLAN = "plan"
     const val SETTINGS = "settings"
+    const val RECIPES = "recipes"
+    const val RECIPE = "recipe/{id}"
+    const val SHOPPING = "shopping"
+    fun recipe(id: Long) = "recipe/$id"
     const val MEAL_PHOTO = "meal/photo?uri={uri}"
     fun mealPhoto(uri: Uri) = "meal/photo?uri=${Uri.encode(uri.toString())}"
 }
@@ -137,6 +141,8 @@ fun AppNav(hasProfile: Boolean, startAction: String? = null) {
                 onPhoto = { uri -> nav.navigate(Routes.mealPhoto(uri)) },
                 onText = { nav.navigate(Routes.MEAL_TEXT) },
                 onPlan = { nav.navigate(Routes.PLAN) },
+                onRecipes = { nav.navigate(Routes.RECIPES) },
+                onShopping = { nav.navigate(Routes.SHOPPING) },
                 onWeighIn = { nav.goTab(Tab.PROGRESS) },
                 showWelcome = welcomeDay != com.sarat.app.util.Dates.todayEpoch(),
                 onWelcomeShown = {
@@ -169,7 +175,33 @@ fun AppNav(hasProfile: Boolean, startAction: String? = null) {
 
         composable(Routes.PLAN) {
             val vm = viewModel { com.sarat.app.ui.plan.PlanViewModel(c.repository, c.gemini, c.prefs) }
-            com.sarat.app.ui.plan.PlanScreen(vm, onBack = { nav.popBackStack() }, onSaved = { nav.popBackStack(Routes.HOME, inclusive = false) })
+            com.sarat.app.ui.plan.PlanScreen(
+                vm,
+                onBack = { nav.popBackStack() },
+                onSaved = { nav.popBackStack(Routes.HOME, inclusive = false) },
+                onRecipes = { nav.navigate(Routes.RECIPES) },
+                onShopping = { nav.navigate(Routes.SHOPPING) },
+            )
+        }
+
+        composable(Routes.RECIPES) {
+            val vm = viewModel { com.sarat.app.ui.kitchen.RecipesViewModel(c.repository) }
+            com.sarat.app.ui.kitchen.RecipesScreen(vm, onOpen = { id -> nav.navigate(Routes.recipe(id)) }, onBack = { nav.popBackStack() })
+        }
+
+        composable(Routes.RECIPE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
+            val id = entry.arguments?.getLong("id") ?: 0L
+            val vm = viewModel(key = "recipe-$id") { com.sarat.app.ui.kitchen.RecipeDetailViewModel(c.repository, id) }
+            com.sarat.app.ui.kitchen.RecipeDetailScreen(
+                vm,
+                onBack = { nav.popBackStack() },
+                onEaten = { nav.popBackStack(Routes.HOME, inclusive = false) },
+            )
+        }
+
+        composable(Routes.SHOPPING) {
+            val vm = viewModel { com.sarat.app.ui.kitchen.ShoppingViewModel(c.repository) }
+            com.sarat.app.ui.kitchen.ShoppingScreen(vm, onBack = { nav.popBackStack() })
         }
 
         composable(Routes.MEAL_TEXT) {

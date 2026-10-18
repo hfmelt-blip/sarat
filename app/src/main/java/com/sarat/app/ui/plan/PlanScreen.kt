@@ -21,6 +21,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.BookmarkAdded
+import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
@@ -63,7 +68,13 @@ private val quickItems = listOf(
 )
 
 @Composable
-fun PlanScreen(vm: PlanViewModel, onBack: () -> Unit, onSaved: () -> Unit) {
+fun PlanScreen(
+    vm: PlanViewModel,
+    onBack: () -> Unit,
+    onSaved: () -> Unit,
+    onRecipes: () -> Unit,
+    onShopping: () -> Unit,
+) {
     Column(
         Modifier
             .fillMaxSize()
@@ -79,9 +90,15 @@ fun PlanScreen(vm: PlanViewModel, onBack: () -> Unit, onSaved: () -> Unit) {
                 IconButton(onClick = onBack, modifier = Modifier.size(44.dp).clip(CircleShape).background(C.Card)) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "رجوع", tint = C.Ink)
                 }
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text("شنو آكل؟", style = MaterialTheme.typography.headlineSmall, color = C.Ink)
-                    Text("نقترح وجبة من الموجود بالبيت وبحدود سعراتك", fontSize = 13.sp, color = C.Muted)
+                    Text("وجبة من الموجود وبحدود سعراتك", fontSize = 13.sp, color = C.Muted)
+                }
+                IconButton(onClick = onRecipes) {
+                    Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = "وصفاتي", tint = C.Green)
+                }
+                IconButton(onClick = onShopping) {
+                    Icon(Icons.Outlined.ShoppingCart, contentDescription = "قائمة المشتريات", tint = C.Green)
                 }
             }
 
@@ -236,6 +253,7 @@ private fun SuggestionContent(vm: PlanViewModel, s: MealSuggestion) {
                 onMinus = { vm.scaleIngredient(i, 0.75) },
                 onPlus = { vm.scaleIngredient(i, 1.25) },
                 onRemove = { vm.removeIngredient(i) },
+                onShop = { vm.addToShopping(i) },
             )
         }
     }
@@ -265,6 +283,41 @@ private fun SuggestionContent(vm: PlanViewModel, s: MealSuggestion) {
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
                 .background(if (over) C.OrangeSoft else C.GreenSoft).padding(12.dp),
         )
+    }
+
+    // حفظ ومشاركة ومشتريات
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(
+            onClick = vm::saveRecipe, enabled = !vm.savedCurrent,
+            shape = RoundedCornerShape(16.dp), modifier = Modifier.weight(1f).height(48.dp),
+        ) {
+            Icon(
+                if (vm.savedCurrent) Icons.Outlined.BookmarkAdded else Icons.Outlined.BookmarkAdd,
+                contentDescription = null, tint = C.Green, modifier = Modifier.size(18.dp),
+            )
+            Text(if (vm.savedCurrent) "  محفوظة" else "  احفظ الوصفة", color = C.Green, fontWeight = FontWeight.SemiBold)
+        }
+        OutlinedButton(
+            onClick = { com.sarat.app.util.TextShare.share(context, com.sarat.app.util.TextShare.recipeText(s)) },
+            shape = RoundedCornerShape(16.dp), modifier = Modifier.weight(1f).height(48.dp),
+        ) {
+            Icon(Icons.Outlined.Share, contentDescription = null, tint = C.Ink, modifier = Modifier.size(18.dp))
+            Text("  شارك بواتساب", color = C.Ink, fontWeight = FontWeight.SemiBold)
+        }
+    }
+    if (s.ingredients.any { !it.available }) {
+        OutlinedButton(
+            onClick = vm::addMissingToShopping,
+            shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().height(48.dp),
+        ) {
+            Icon(Icons.Outlined.ShoppingCart, contentDescription = null, tint = C.OrangeText, modifier = Modifier.size(18.dp))
+            Text("  أضف الناقص لقائمة المشتريات", color = C.OrangeText, fontWeight = FontWeight.SemiBold)
+        }
+    }
+    vm.notice?.let { msg ->
+        androidx.compose.runtime.LaunchedEffect(msg) { kotlinx.coroutines.delay(2500); vm.notice = null }
+        Text(msg, color = C.GreenDark, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
 
     // التعديل
@@ -297,7 +350,13 @@ private fun SuggestionContent(vm: PlanViewModel, s: MealSuggestion) {
 }
 
 @Composable
-private fun IngredientRow(item: PlanIngredient, onMinus: () -> Unit, onPlus: () -> Unit, onRemove: () -> Unit) {
+private fun IngredientRow(
+    item: PlanIngredient,
+    onMinus: () -> Unit,
+    onPlus: () -> Unit,
+    onRemove: () -> Unit,
+    onShop: () -> Unit,
+) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -313,9 +372,9 @@ private fun IngredientRow(item: PlanIngredient, onMinus: () -> Unit, onPlus: () 
             val portion = listOf(item.amount, if (item.grams > 0) "${item.grams} غم" else "").filter { it.isNotBlank() }.joinToString(" · ")
             if (portion.isNotBlank()) Text(portion, fontSize = 12.sp, color = C.Muted)
             if (!item.available) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.clickable(onClick = onShop), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(Icons.Outlined.ShoppingCart, contentDescription = null, tint = C.OrangeText, modifier = Modifier.size(14.dp))
-                    Text("تحتاج تشتريه", fontSize = 12.sp, color = C.OrangeText)
+                    Text("تحتاج تشتريه · أضف للمشتريات", fontSize = 12.sp, color = C.OrangeText, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

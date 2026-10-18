@@ -82,3 +82,45 @@ interface CorrectionDao {
     @Upsert
     suspend fun upsert(c: CorrectionEntity)
 }
+
+@Dao
+interface RecipeDao {
+    @Query("SELECT * FROM recipes ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<RecipeEntity>>
+
+    @Query("SELECT * FROM recipes WHERE id = :id")
+    suspend fun get(id: Long): RecipeEntity?
+
+    @Query("SELECT * FROM recipes WHERE title = :title LIMIT 1")
+    suspend fun findByTitle(title: String): RecipeEntity?
+
+    @Insert
+    suspend fun insert(r: RecipeEntity): Long
+
+    @Upsert
+    suspend fun upsert(r: RecipeEntity)
+
+    @Query("DELETE FROM recipes WHERE id = :id")
+    suspend fun delete(id: Long)
+}
+
+@Dao
+interface ShoppingDao {
+    @Query("SELECT * FROM shopping ORDER BY done ASC, createdAt DESC")
+    fun observeAll(): Flow<List<ShoppingEntity>>
+
+    @Query("SELECT COUNT(*) FROM shopping WHERE name = :name AND done = 0")
+    suspend fun countOpen(name: String): Int
+
+    @Insert
+    suspend fun insert(item: ShoppingEntity): Long
+
+    @Query("UPDATE shopping SET done = :done WHERE id = :id")
+    suspend fun setDone(id: Long, done: Boolean)
+
+    @Query("DELETE FROM shopping WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM shopping WHERE done = 1")
+    suspend fun clearDone()
+}

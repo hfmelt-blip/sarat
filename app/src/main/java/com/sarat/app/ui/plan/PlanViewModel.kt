@@ -43,6 +43,11 @@ class PlanViewModel(
         private set
     var error by mutableStateOf<String?>(null)
         private set
+    /** رسالة قصيرة بعد الحفظ أو الإضافة للمشتريات. */
+    var notice by mutableStateOf<String?>(null)
+    /** الاقتراح الحالي انحفظ بالوصفات. */
+    var savedCurrent by mutableStateOf(false)
+        private set
 
     private var goals: Set<DietGoal> = emptySet()
     private var medMinute: Int? = null
@@ -123,6 +128,7 @@ class PlanViewModel(
                 )
                 val result = gemini.suggestMeal(text)
                 suggestion = result
+                savedCurrent = false
                 if (result.dishName.isNotBlank()) shown += result.dishName
                 if (changeText != null) change = ""
             } catch (e: GeminiException) {
@@ -148,6 +154,31 @@ class PlanViewModel(
     fun removeIngredient(index: Int) {
         val s = suggestion ?: return
         suggestion = s.copy(ingredients = s.ingredients.filterIndexed { i, _ -> i != index })
+    }
+
+    fun saveRecipe() {
+        val s = suggestion ?: return
+        if (!s.possible || s.ingredients.isEmpty()) return
+        viewModelScope.launch {
+            repo.saveRecipe(s, "AI")
+            savedCurrent = true
+            notice = "انحفظت بوصفاتي"
+        }
+    }
+
+    fun addToShopping(index: Int) {
+        val item = suggestion?.ingredients?.getOrNull(index) ?: return
+        viewModelScope.launch {
+            notice = if (repo.addShopping(item.name, item.amount)) "انضاف «${item.name}» للمشتريات" else "«${item.name}» موجود أصلاً بالقائمة"
+        }
+    }
+
+    fun addMissingToShopping() {
+        val s = suggestion ?: return
+        viewModelScope.launch {
+            val added = s.ingredients.filter { !it.available }.count { repo.addShopping(it.name, it.amount) }
+            notice = if (added > 0) "انضاف $added للمشتريات" else "الناقص موجود أصلاً بالقائمة"
+        }
     }
 
     /** يسجّل الوجبة المقترحة كوجبة مأكولة. */

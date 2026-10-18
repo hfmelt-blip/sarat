@@ -101,6 +101,53 @@ class Repository(private val db: AppDatabase) {
         )
     }
 
+    // ───── الوصفات المحفوظة ─────
+
+    val recipes: Flow<List<SavedRecipe>> = db.recipeDao().observeAll().map { list -> list.mapNotNull { it.toRecipe() } }
+
+    suspend fun getRecipe(id: Long): SavedRecipe? = db.recipeDao().get(id)?.toRecipe()
+
+    /** يحفظ الوصفة (وإذا موجودة بنفس الاسم يحدّثها) ويرجع رقمها. */
+    suspend fun saveRecipe(s: com.sarat.app.data.gemini.MealSuggestion, source: String = "AI", id: Long = 0): Long {
+        val payload = json.encodeToString(com.sarat.app.data.gemini.MealSuggestion.serializer(), s)
+        val existing = if (id != 0L) db.recipeDao().get(id) else db.recipeDao().findByTitle(s.dishName)
+        return if (existing != null) {
+            db.recipeDao().upsert(existing.copy(title = s.dishName, json = payload))
+            existing.id
+        } else {
+            db.recipeDao().insert(
+                com.sarat.app.data.db.RecipeEntity(
+                    title = s.dishName, json = payload, source = source, createdAt = System.currentTimeMillis(),
+                )
+            )
+        }
+    }
+
+    suspend fun deleteRecipe(id: Long) = db.recipeDao().delete(id)
+
+    private fun com.sarat.app.data.db.RecipeEntity.toRecipe(): SavedRecipe? =
+        runCatching {
+            SavedRecipe(id, source, json.decodeFromString(com.sarat.app.data.gemini.MealSuggestion.serializer(), this.json))
+        }.getOrNull()
+
+    // ───── قائمة المشتريات ─────
+
+    val shopping: Flow<List<com.sarat.app.data.db.ShoppingEntity>> = db.shoppingDao().observeAll()
+
+    /** يضيف للقائمة إذا مو موجود أصلاً (وما مشتري). يرجع true إذا انضاف. */
+    suspend fun addShopping(name: String, amount: String = ""): Boolean {
+        val n = name.trim()
+        if (n.isEmpty() || db.shoppingDao().countOpen(n) > 0) return false
+        db.shoppingDao().insert(
+            com.sarat.app.data.db.ShoppingEntity(name = n, amount = amount.trim(), done = false, createdAt = System.currentTimeMillis())
+        )
+        return true
+    }
+
+    suspend fun setShoppingDone(id: Long, done: Boolean) = db.shoppingDao().setDone(id, done)
+    suspend fun deleteShopping(id: Long) = db.shoppingDao().delete(id)
+    suspend fun clearBoughtShopping() = db.shoppingDao().clearDone()
+
     // ───── الوزن ─────
 
     val weights: Flow<List<WeightEntity>> = db.weightDao().observeAll()
@@ -179,3 +226,10 @@ fun dishKey(name: String): String = name.trim().lowercase()
     .replace('ة', 'ه')
     .replace('ى', 'ي')
     .replace(Regex("\\s+"), " ")
+
+data class SavedRecipe(
+    val id: Long,
+    /** AI | USER | BUILTIN */
+    val source: String,
+    val recipe: com.sarat.app.data.gemini.MealSuggestion,
+)

@@ -66,3 +66,24 @@ data class CorrectionEntity(
     val itemsJson: String,
     val updatedAt: Long,
 )
+
+/** وصفة محفوظة: مقترحة من Gemini أو مضافة يدوياً. [json] = MealSuggestion. */
+@Entity(tableName = "recipes")
+data class RecipeEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val json: String,
+    /** AI | USER */
+    val source: String,
+    val createdAt: Long,
+)
+
+/** عنصر بقائمة المشتريات. */
+@Entity(tableName = "shopping")
+data class ShoppingEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val amount: String,
+    val done: Boolean,
+    val createdAt: Long,
+)
