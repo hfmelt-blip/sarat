@@ -37,7 +37,20 @@ route('onboarding', (r) => {
     return { age, cm, kg, target, basicsOk, targetOk: basicsOk && target >= 35 && target <= kg + 0.01 };
   };
 
-  const refresh = () => {
+  // سبب عدم الاكتمال بكلام واضح، والحقل اللي لازم يتصلّح
+  const problem = (v) => {
+    if (!(v.age >= 14 && v.age <= 100)) return ['ob-age', isNaN(v.age) ? 'اكتب عمرك' : 'العمر لازم يكون بين ١٤ و١٠٠ سنة'];
+    if (!(v.cm >= 120 && v.cm <= 230)) return ['ob-h', isNaN(v.cm) ? 'اكتب طولك بالسانتيمتر' : (v.cm > 0 && v.cm < 3 ? 'اكتب الطول بالسانتيمتر، مثلاً 165 مو 1.65' : 'الطول لازم يكون بين ١٢٠ و٢٣٠ سم')];
+    if (!(v.kg >= 35 && v.kg <= 300)) return ['ob-w', isNaN(v.kg) ? 'اكتب وزنك الحالي' : 'الوزن لازم يكون بين ٣٥ و٣٠٠ كغم'];
+    if (isNaN(v.target)) return ['ob-target', 'اكتب الوزن اللي تريد توصله'];
+    if (v.target < 35) return ['ob-target', 'الوزن المطلوب قليل كلش'];
+    if (v.target > v.kg + 0.01) return ['ob-target', 'الوزن المطلوب لازم يكون أقل من وزنك الحالي أو يساويه'];
+    return null;
+  };
+  const hintBox = h('div');
+
+  const refresh = () => { try { refreshInner(); } catch (err) { hintBox.replaceChildren(h('div', { class: 'error small' }, 'خطأ: ' + (err && err.message))); } };
+  const refreshInner = () => {
     const v = vals();
     idealBox.replaceChildren();
     if (v.basicsOk) {
@@ -65,11 +78,12 @@ route('onboarding', (r) => {
         plan.etaDay ? h('div', { class: 'small' }, `توصل لـ ${fmt1(v.target)} كغم حوالي ${shortDate(plan.etaDay)}`) : h('div', { class: 'small' }, 'هدفك تحافظ على وزنك الحالي، فسعراتك اليومية تساوي احتياجك.'),
         plan.limitedByMinimum ? h('div', { class: 'xs', style: { color: '#FFD27A' } }, `ما ننزل تحت ${plan.minimumCalories} سعرة لأنه الحد الأدنى الآمن، فالنزول راح يكون أبطأ شوية.`) : null));
     }
-    saveBtn.disabled = !v.targetOk;
+    saveBtn.style.opacity = v.targetOk ? '1' : '.55';
   };
 
   const field = (id, label, value, set, attrs = {}) => {
-    const input = h('input', { id, class: 'input', value, oninput: (e) => { set(e.target.value); refresh(); }, ...attrs });
+    const upd = (e) => { set(e.target.value); refresh(); };
+    const input = h('input', { id, class: 'input', value, oninput: upd, onchange: upd, onkeyup: upd, onblur: upd, ...attrs });
     return [h('div', { class: 'field' }, h('label', { for: id }, label), input), input];
   };
 
@@ -106,11 +120,22 @@ route('onboarding', (r) => {
   parts.push(h('div', { class: 'stack-s' }, h('div', { class: 'small semi' }, 'سرعة النزول بالأسبوع (كغم)'),
     chips([[0.25, '٠٫٢٥'], [0.5, '٠٫٥'], [0.75, '٠٫٧٥'], [1, '١']], d.rate, (v) => { d.rate = v; rerender(); }),
     h('div', { class: 'hint' }, 'نص كيلو بالأسبوع سرعة صحية ومريحة لأغلب الناس.')));
-  parts.push(planBox);
+  parts.push(planBox, hintBox);
 
   saveBtn.onclick = async () => {
+    // نقرأ القيم من الحقول مباشرة احتياطاً
+    [['ob-age', 'age'], ['ob-h', 'height'], ['ob-w', 'weight'], ['ob-target', 'target']].forEach(([id, k]) => { const el = document.getElementById(id); if (el) d[k] = el.value; });
+    const nm = document.getElementById('ob-name'); if (nm) d.name = nm.value.trim();
+    refresh();
     const v = vals();
-    if (!v.targetOk) return;
+    const pr = problem(v);
+    if (pr) {
+      toast(pr[1]);
+      hintBox.replaceChildren(h('div', { class: 'warn small' }, pr[1]));
+      const el = document.getElementById(pr[0]);
+      if (el) { el.scrollIntoView({ block: 'center' }); el.style.borderColor = 'var(--orange)'; }
+      return;
+    }
     const p = buildProfile(d, edit ? S.profile() : null);
     await setKv('profile', p);
     if (!edit) {
