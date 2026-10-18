@@ -174,7 +174,7 @@ class MealViewModel(
     }
 
     /** يغيّر عدد الحصص ويكبّر أو يصغّر كل المكونات بنفس النسبة. */
-    fun setPortion(value: Double) {
+    fun changePortion(value: Double) {
         val a = analysis ?: return
         if (value <= 0 || value == portion) return
         val factor = value / portion

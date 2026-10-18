@@ -208,7 +208,7 @@ private fun ResultContent(vm: MealViewModel, analysis: MealAnalysis) {
         Text("الكمية", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = C.Ink)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(0.5 to "نص", 1.0 to "حصة", 1.5 to "حصة ونص", 2.0 to "حصتين", 3.0 to "٣ حصص").forEach { (p, label) ->
-                PortionChip(label, vm.portion == p) { vm.setPortion(p) }
+                PortionChip(label, vm.portion == p) { vm.changePortion(p) }
             }
         }
     }
