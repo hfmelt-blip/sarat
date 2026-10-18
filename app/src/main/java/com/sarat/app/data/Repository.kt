@@ -127,7 +127,7 @@ class Repository(private val db: AppDatabase) {
 
     private fun com.sarat.app.data.db.RecipeEntity.toRecipe(): SavedRecipe? =
         runCatching {
-            SavedRecipe(id, source, json.decodeFromString(com.sarat.app.data.gemini.MealSuggestion.serializer(), this.json))
+            SavedRecipe(id, source, this@Repository.json.decodeFromString(com.sarat.app.data.gemini.MealSuggestion.serializer(), this.json))
         }.getOrNull()
 
     // ───── قائمة المشتريات ─────
