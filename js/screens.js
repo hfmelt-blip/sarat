@@ -257,6 +257,7 @@ route('history', () => {
       h('span', null, h('i', { style: { background: 'var(--orange)' } }), 'زيادة'),
       h('span', null, h('i', { style: { background: 'var(--red)' } }), 'أقل من الآمن'),
       h('span', null, h('i', { style: { background: 'var(--line)' } }), 'بدون تسجيل')),
+    h('button', { class: 'btn outline small', onclick: () => go('meals') }, 'جدول كل وجباتي (المكونات والبروتين والكارب والدهون)'),
     h('div', { class: 'row' }, h('h3', { class: 'grow' }, fullDate(session.calSel)), sel ? h('div', { class: 'small muted num' }, `${sel.consumed} / ${sel.target}`) : null),
     sel ? h('div', { class: 'small', style: { color: STATUS_COLOR[sel.status] || 'var(--muted)' } }, sel.message) : null,
     meals.length ? meals.map((m) => mealRow(m, { showRate: true })) : h('div', { class: 'small muted' }, 'ما كو وجبات مسجلة بهذا اليوم.'),
