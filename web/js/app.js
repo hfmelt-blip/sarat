@@ -9,6 +9,7 @@ import { analyzeMeal, GeminiError } from './gemini.js';
 import { QUICK_ITEMS } from './recipes.js';
 import './screens.js';
 import './kitchen.js';
+import './meals.js';
 
 // ───── الصور ─────
 
@@ -329,7 +330,8 @@ route('home', () => {
       h('button', { class: 'btn outline grow', onclick: () => go('plan') }, icon('utensils'), 'شنو آكل؟')),
     h('div', { class: 'row' },
       h('button', { class: 'link-chip grow', onclick: () => go('recipes') }, icon('book'), 'وصفاتي'),
-      h('button', { class: 'link-chip grow', onclick: () => go('shopping') }, icon('cart'), 'المشتريات')),
+      h('button', { class: 'link-chip grow', onclick: () => go('shopping') }, icon('cart'), 'المشتريات'),
+      h('button', { class: 'link-chip grow', onclick: () => go('meals') }, icon('calendar'), 'وجباتي')),
     favs.length ? h('div', { class: 'stack-s' },
       h('h3', null, 'وجباتك المعتادة'),
       h('div', { class: 'row', style: { overflowX: 'auto', paddingBottom: '4px' } }, favs.map((f) =>

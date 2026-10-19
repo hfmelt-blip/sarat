@@ -1,8 +1,8 @@
 // يخلّي التطبيق ينفتح بدون إنترنت. غيّر الرقم مع كل تحديث.
-const VERSION = 'sarat-v2';
+const VERSION = 'sarat-v3';
 const FILES = [
-  './', 'index.html', 'manifest.webmanifest', 'css/app.css?v=2',
-  'js/app.js?v=2', 'js/ui.js', 'js/db.js', 'js/nav.js', 'js/store.js', 'js/nutrition.js', 'js/gemini.js', 'js/recipes.js', 'js/screens.js', 'js/kitchen.js',
+  './', 'index.html', 'manifest.webmanifest', 'css/app.css?v=3',
+  'js/app.js?v=3', 'js/ui.js', 'js/db.js', 'js/nav.js', 'js/store.js', 'js/nutrition.js', 'js/gemini.js', 'js/recipes.js', 'js/screens.js', 'js/kitchen.js', 'js/meals.js',
   'fonts/tajawal_regular.ttf', 'fonts/tajawal_medium.ttf', 'fonts/tajawal_bold.ttf', 'fonts/tajawal_extrabold.ttf',
   'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/favicon-32.png',
 ];

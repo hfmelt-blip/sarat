@@ -203,3 +203,7 @@ textarea.input { min-height: 110px; resize: vertical; line-height: 1.6; }
 .rate button.down { color: var(--orange); }
 hr.sep { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
 .chart svg { width: 100%; height: 180px; display: block; }
+.mtable { width: 100%; border-collapse: collapse; font-size: 12px; }
+.mtable th, .mtable td { padding: 6px 4px; text-align: center; border-bottom: 1px solid var(--line); font-weight: 400; }
+.mtable th { text-align: start; width: 40%; }
+.mtable tr.head th, .mtable tr.head td, .mtable tr.total th, .mtable tr.total td { background: var(--green-soft); color: var(--green-dark); font-weight: 700; }
