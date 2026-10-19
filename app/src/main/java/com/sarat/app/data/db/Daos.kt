@@ -61,6 +61,15 @@ interface MealDao {
     @Query("SELECT * FROM meals WHERE id = :id")
     suspend fun get(id: Long): MealEntity?
 
+    @Query("SELECT * FROM meals WHERE id = :id")
+    fun observe(id: Long): Flow<MealEntity?>
+
+    @Query("SELECT * FROM meals ORDER BY epochDay DESC, minuteOfDay DESC, id DESC")
+    fun observeAll(): Flow<List<MealEntity>>
+
+    @Query("UPDATE meals SET title = :title, calories = :calories, proteinG = :protein, carbsG = :carbs, fatG = :fat, itemsJson = :itemsJson WHERE id = :id")
+    suspend fun updateContent(id: Long, title: String, calories: Int, protein: Double, carbs: Double, fat: Double, itemsJson: String)
+
     @Insert
     suspend fun insert(meal: MealEntity): Long
 

@@ -285,7 +285,7 @@ private fun PortionChip(text: String, selected: Boolean, onClick: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AddItemDialog(
+internal fun AddItemDialog(
     onQuick: (FoodItem) -> Unit,
     onCustom: (String, String, Int) -> Unit,
     onDismiss: () -> Unit,

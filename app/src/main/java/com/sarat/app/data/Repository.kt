@@ -69,6 +69,26 @@ class Repository(private val db: AppDatabase) {
 
     suspend fun deleteMeal(id: Long) = db.mealDao().delete(id)
 
+    /** كل الوجبات، الأحدث أولاً. */
+    val allMeals: Flow<List<Meal>> = db.mealDao().observeAll().map { list -> list.map { it.toMeal() } }
+
+    fun observeMeal(id: Long): Flow<Meal?> = db.mealDao().observe(id).map { it?.toMeal() }
+
+    suspend fun observeMealOnce(id: Long): Meal? = db.mealDao().get(id)?.toMeal()
+
+    /** تعديل اسم الوجبة ومكوناتها بعد التسجيل، والمجاميع تنحسب من جديد. */
+    suspend fun updateMeal(id: Long, title: String, items: List<FoodItem>) {
+        db.mealDao().updateContent(
+            id = id,
+            title = title.ifBlank { items.joinToString("، ") { it.name } },
+            calories = items.sumOf { it.calories },
+            protein = items.sumOf { it.proteinG },
+            carbs = items.sumOf { it.carbsG },
+            fat = items.sumOf { it.fatG },
+            itemsJson = json.encodeToString(itemsSerializer, items),
+        )
+    }
+
     val favorites: Flow<List<Meal>> = db.mealDao().observeFavorites().map { list -> list.map { it.toMeal() } }
 
     /** تثبيت أو إلغاء تثبيت وجبة كمفضلة (كل الوجبات بنفس الاسم). */
