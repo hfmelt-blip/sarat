@@ -49,6 +49,7 @@ object Routes {
     const val RECIPES = "recipes"
     const val RECIPE = "recipe/{id}"
     const val SHOPPING = "shopping"
+    const val MEALS = "meals"
     fun recipe(id: Long) = "recipe/$id"
     const val BUILTIN = "builtin/{bid}"
     fun builtin(bid: String) = "builtin/$bid"
@@ -147,6 +148,7 @@ fun AppNav(hasProfile: Boolean, startAction: String? = null) {
                 onPlan = { nav.navigate(Routes.PLAN) },
                 onRecipes = { nav.navigate(Routes.RECIPES) },
                 onShopping = { nav.navigate(Routes.SHOPPING) },
+                onAllMeals = { nav.navigate(Routes.MEALS) },
                 onWeighIn = { nav.goTab(Tab.PROGRESS) },
                 showWelcome = welcomeDay != com.sarat.app.util.Dates.todayEpoch(),
                 onWelcomeShown = {
@@ -161,7 +163,7 @@ fun AppNav(hasProfile: Boolean, startAction: String? = null) {
 
         composable(Routes.HISTORY) {
             val vm = viewModel { HistoryViewModel(c.repository) }
-            HistoryScreen(vm, onTab = nav::goTab, onWeighIn = { nav.goTab(Tab.PROGRESS) })
+            HistoryScreen(vm, onTab = nav::goTab, onWeighIn = { nav.goTab(Tab.PROGRESS) }, onAllMeals = { nav.navigate(Routes.MEALS) })
         }
 
         composable(Routes.PROGRESS) {
@@ -243,6 +245,11 @@ fun AppNav(hasProfile: Boolean, startAction: String? = null) {
                     else nav.navigate(Routes.recipe(newId)) { popUpTo(Routes.RECIPES) }
                 },
             )
+        }
+
+        composable(Routes.MEALS) {
+            val vm = viewModel { com.sarat.app.ui.meals.MealsViewModel(c.repository) }
+            com.sarat.app.ui.meals.MealsTableScreen(vm, onBack = { nav.popBackStack() })
         }
 
         composable(Routes.SHOPPING) {

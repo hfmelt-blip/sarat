@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -106,6 +107,7 @@ fun HomeScreen(
     onPlan: () -> Unit,
     onRecipes: () -> Unit,
     onShopping: () -> Unit,
+    onAllMeals: () -> Unit = {},
     onWeighIn: () -> Unit,
     showWelcome: Boolean,
     onWelcomeShown: () -> Unit,
@@ -272,6 +274,7 @@ fun HomeScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     KitchenLink("وصفاتي", Icons.AutoMirrored.Outlined.MenuBook, onRecipes, Modifier.weight(1f))
                     KitchenLink("المشتريات", Icons.Outlined.ShoppingCart, onShopping, Modifier.weight(1f))
+                    KitchenLink("وجباتي", Icons.Outlined.TableChart, onAllMeals, Modifier.weight(1f))
                 }
             }
 

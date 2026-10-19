@@ -125,7 +125,7 @@ private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.forLan
 private val weekDays = listOf("سبت", "أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة")
 
 @Composable
-fun HistoryScreen(vm: HistoryViewModel, onTab: (Tab) -> Unit, onWeighIn: () -> Unit) {
+fun HistoryScreen(vm: HistoryViewModel, onTab: (Tab) -> Unit, onWeighIn: () -> Unit, onAllMeals: () -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
     val meals by vm.selectedMeals.collectAsStateWithLifecycle()
     Scaffold(containerColor = C.Ground, bottomBar = { MainBottomBar(Tab.HISTORY, onTab) }) { padding ->
@@ -167,11 +167,16 @@ fun HistoryScreen(vm: HistoryViewModel, onTab: (Tab) -> Unit, onWeighIn: () -> U
             if (s.weighInDue) item { WeighInBanner(onWeighIn) }
             item { MonthCalendar(s, onSelect = vm::select, onShift = vm::shiftMonth) }
             item { Legend() }
+            item {
+                androidx.compose.material3.OutlinedButton(
+                    onClick = onAllMeals, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
+                ) { Text("جدول كل وجباتي (المكونات والبروتين والكارب والدهون)", color = C.Green, fontSize = 13.sp) }
+            }
             item { DayHeader(s) }
             if (meals.isEmpty()) {
                 item { Text("ما مسجّل أكل لهذا اليوم.", color = C.Muted, fontSize = 14.sp) }
             }
-            items(meals, key = { it.id }) { MealLine(it) }
+            items(meals, key = { it.id }) { MealLine(it, onAllMeals) }
         }
     }
 }
@@ -305,13 +310,14 @@ private fun DayHeader(s: HistoryState) {
 }
 
 @Composable
-private fun MealLine(meal: Meal) {
+private fun MealLine(meal: Meal, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(C.Card)
             .border(1.dp, C.Line, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
