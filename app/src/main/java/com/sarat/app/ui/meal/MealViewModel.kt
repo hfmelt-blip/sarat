@@ -39,6 +39,11 @@ class MealViewModel(
     var description by mutableStateOf("")
     var loading by mutableStateOf(false)
         private set
+    /** وقت بداية التحليل، حتى نعرض كم ثانية صارله. */
+    var loadingSince by mutableStateOf(0L)
+        private set
+    private var job: kotlinx.coroutines.Job? = null
+        private set
     var error by mutableStateOf<String?>(null)
         private set
     var analysis by mutableStateOf<MealAnalysis?>(null)
@@ -129,10 +134,13 @@ class MealViewModel(
     private fun launchAnalysis(block: suspend () -> MealAnalysis) {
         if (loading) return
         loading = true
+        loadingSince = System.currentTimeMillis()
         error = null
-        viewModelScope.launch {
+        job = viewModelScope.launch {
             try {
-                val result = block()
+                // سقف للانتظار كله، حتى لو جرّبنا أكثر من نموذج
+                val result = kotlinx.coroutines.withTimeoutOrNull(120_000) { block() }
+                    ?: throw GeminiException("Gemini طوّل كلش بالرد. تأكد من النت وحاول مرة ثانية، أو اكتب الوجبة أقصر.")
                 analysis = result
                 portion = 1.0
                 edited = false
@@ -143,12 +151,21 @@ class MealViewModel(
                 } else null
             } catch (e: GeminiException) {
                 error = e.message
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                error = "انلغى التحليل."
+                throw e
             } catch (e: Exception) {
                 error = "صار خطأ غير متوقع: ${e.message ?: e.javaClass.simpleName}"
             } finally {
                 loading = false
+                job = null
             }
         }
+    }
+
+    /** يوقف التحليل الجاري. */
+    fun cancelAnalysis() {
+        job?.cancel()
     }
 
     fun scaleItem(index: Int, factor: Double) {

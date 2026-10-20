@@ -159,7 +159,7 @@ class HttpError extends Error { constructor(code, msg) { super(msg); this.code =
 
 async function call(model, key, body) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 150000);
+  const timer = setTimeout(() => ctrl.abort(), 60000);
   let res;
   try {
     res = await fetch(`${BASE}/models/${model}:generateContent`, {

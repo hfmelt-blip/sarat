@@ -46,8 +46,10 @@ class GeminiClient(
 
     private val http = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(150, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(50, TimeUnit.SECONDS)
+        .writeTimeout(40, TimeUnit.SECONDS)
+        // حد أقصى لكل طلب حتى ما يبقى التطبيق ينتظر بلا نهاية
+        .callTimeout(60, TimeUnit.SECONDS)
         .build()
 
     private val json = Json {

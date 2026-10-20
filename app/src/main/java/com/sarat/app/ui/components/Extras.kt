@@ -105,10 +105,25 @@ private fun Bone(width: Dp?, height: Dp, alpha: Float, radius: Dp = 8.dp) {
 
 /** شكل نتيجة الوجبة وهي تتحمّل، بدل دائرة الانتظار. */
 @Composable
-fun MealResultSkeleton(message: String) {
+fun MealResultSkeleton(message: String, since: Long = 0L, onCancel: (() -> Unit)? = null) {
     val a = pulse()
+    val seconds by androidx.compose.runtime.produceState(0, since) {
+        while (since > 0) {
+            value = ((System.currentTimeMillis() - since) / 1000).toInt()
+            kotlinx.coroutines.delay(1000)
+        }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(message, color = C.Muted, fontSize = 14.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(message, color = C.Muted, fontSize = 14.sp)
+                if (since > 0) Text(
+                    if (seconds < 25) "مرت $seconds ثانية" else "مرت $seconds ثانية · Gemini بطيء شوية هسه",
+                    color = C.Muted, fontSize = 12.sp,
+                )
+            }
+            if (onCancel != null) androidx.compose.material3.TextButton(onClick = onCancel) { Text("إلغاء", color = C.Red) }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Bone(200.dp, 22.dp, a)

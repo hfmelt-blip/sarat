@@ -90,7 +90,7 @@ fun MealPhotoScreen(vm: MealViewModel, uri: Uri, onBack: () -> Unit, onSaved: ()
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             when {
-                vm.loading -> MealResultSkeleton("نحلل الصورة ونحسب السعرات…")
+                vm.loading -> MealResultSkeleton("نحلل الصورة ونحسب السعرات…", vm.loadingSince, vm::cancelAnalysis)
                 vm.error != null -> ErrorBox(vm.error!!, vm::retry)
                 vm.analysis != null -> ResultContent(vm, vm.analysis!!)
             }
@@ -139,7 +139,7 @@ fun TextEntryScreen(vm: MealViewModel, onBack: () -> Unit, onSaved: () -> Unit) 
             ) { Text("احسب وقيّم", fontWeight = FontWeight.SemiBold) }
 
             when {
-                vm.loading -> MealResultSkeleton("نحسب السعرات ونقيّم الوجبة…")
+                vm.loading -> MealResultSkeleton("نحسب السعرات ونقيّم الوجبة…", vm.loadingSince, vm::cancelAnalysis)
                 vm.error != null -> ErrorBox(vm.error!!, vm::retry)
                 vm.analysis != null -> ResultContent(vm, vm.analysis!!)
             }
