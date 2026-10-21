@@ -44,13 +44,27 @@ class GeminiClient(
 
     private class HttpError(val code: Int, message: String) : Exception(message)
 
+    /** نقدّم عناوين IPv4، لأن IPv6 بأغلب شبكات العراق ناقص ويسبب فشل أو تأخير بالاتصال. */
+    private val ipv4First = object : okhttp3.Dns {
+        override fun lookup(hostname: String): List<java.net.InetAddress> =
+            okhttp3.Dns.SYSTEM.lookup(hostname).sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
+    }
+
     private val http = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
+        .dns(ipv4First)
+        .retryOnConnectionFailure(true)
+        .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(50, TimeUnit.SECONDS)
         .writeTimeout(40, TimeUnit.SECONDS)
         // حد أقصى لكل طلب حتى ما يبقى التطبيق ينتظر بلا نهاية
         .callTimeout(60, TimeUnit.SECONDS)
         .build()
+
+    /** نسخة تستخدم HTTP/1.1 فقط، نرجعلها إذا فشل الاتصال العادي (بعض الشبكات تقطع HTTP/2). */
+    private val http1 by lazy { http.newBuilder().protocols(listOf(okhttp3.Protocol.HTTP_1_1)).build() }
+
+    /** النماذج اللي رفضت إعداد التفكير، حتى ما نضيّع طلب عليها كل مرة. */
+    private val noThinking = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -74,7 +88,7 @@ class GeminiClient(
             .get()
             .build()
         try {
-            http.newCall(request).execute().use { response ->
+            client.newCall(request).execute().use { response ->
                 when {
                     response.isSuccessful -> null
                     response.code == 400 || response.code == 401 || response.code == 403 ->
@@ -147,11 +161,16 @@ class GeminiClient(
         var lastError: HttpError? = null
         for (model in models) {
             val raw = try {
-                try {
-                    call(model, key, body(lowThinking = true))
+                if (model in noThinking) {
+                    callWithRetry(model, key, body(lowThinking = false))
+                } else try {
+                    callWithRetry(model, key, body(lowThinking = true))
                 } catch (e: HttpError) {
-                    // إذا النموذج ما يقبل إعداد التفكير، نعيد الطلب بدونه
-                    if (e.code == 400) call(model, key, body(lowThinking = false)) else throw e
+                    // إذا النموذج ما يقبل إعداد التفكير، نعيد الطلب بدونه ونتذكر
+                    if (e.code == 400) {
+                        noThinking += model
+                        callWithRetry(model, key, body(lowThinking = false))
+                    } else throw e
                 }
             } catch (e: HttpError) {
                 lastError = e
@@ -164,7 +183,23 @@ class GeminiClient(
         throw GeminiException(lastError?.message ?: "خدمة Gemini غير متاحة حالياً.")
     }
 
-    private fun call(model: String, key: String, body: String): String {
+    /** مشاكل الشبكة المؤقتة نعيد عليها مرتين، والثانية بـ HTTP/1.1. */
+    private fun callWithRetry(model: String, key: String, body: String): String {
+        var attempt = 0
+        while (true) {
+            try {
+                return call(model, key, body, if (attempt >= 1) http1 else http)
+            } catch (e: NetworkGlitch) {
+                attempt++
+                if (attempt > 2) throw HttpError(503, "تعذّر الاتصال بـ Gemini رغم المحاولة. حاول بعد شوية.")
+                Thread.sleep(700L * attempt)
+            }
+        }
+    }
+
+    private class NetworkGlitch : Exception()
+
+    private fun call(model: String, key: String, body: String, client: OkHttpClient = http): String {
         val request = Request.Builder()
             .url("$BASE/models/$model:generateContent")
             .header("x-goog-api-key", key)
@@ -177,13 +212,15 @@ class GeminiClient(
                 payload
             }
         } catch (e: java.net.SocketTimeoutException) {
+            if (e.message?.contains("connect", ignoreCase = true) == true) throw NetworkGlitch()
             throw HttpError(408, "Gemini طوّل بالرد. حاول مرة ثانية.")
         } catch (e: java.io.InterruptedIOException) {
             throw HttpError(408, "Gemini طوّل بالرد. حاول مرة ثانية.")
         } catch (e: java.net.UnknownHostException) {
-            throw GeminiException("ما كو اتصال بالإنترنت. تأكد من الشبكة وحاول مرة ثانية.")
+            // أحياناً الـ DNS يفشل لحظياً رغم وجود النت، فنعيد المحاولة
+            throw NetworkGlitch()
         } catch (e: IOException) {
-            throw HttpError(503, "تعذّر الوصول لخدمة Gemini. حاول بعد شوية.")
+            throw NetworkGlitch()
         }
     }
 

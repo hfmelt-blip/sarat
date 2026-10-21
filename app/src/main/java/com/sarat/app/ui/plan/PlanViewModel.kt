@@ -182,8 +182,9 @@ class PlanViewModel(
                 if (pantryKey.isNotBlank() && c.keys.isNotEmpty()) {
                     score += 20.0 * c.keys.count { pantryKey.contains(dishKey(it)) } / c.keys.size
                 }
-                // الأقرب للسعرات المطلوبة أفضل
-                score -= kotlin.math.abs(c.baseKcal - b.kcal) / 50.0
+                // الأقرب للسعرات والبروتين والكارب والدهون المطلوبة أفضل
+                val f = (b.kcal.toDouble() / c.baseKcal).coerceIn(0.5, 1.5)
+                score -= com.sarat.app.domain.MacroCheck.distance(c.make(f), b) * 25
                 score
             }
         } ?: return false
@@ -219,7 +220,19 @@ class PlanViewModel(
                     previous = previous, change = changeText, exclude = shown.toList(),
                     feedback = runCatching { repo.planFeedback() }.getOrNull(),
                 )
-                val result = gemini.suggestMeal(text)
+                var result = gemini.suggestMeal(text)
+                // إذا الوجبة ما راعت البروتين والكارب والدهون، نطلب تصحيح مرة وحدة
+                if (result.possible && result.ingredients.isNotEmpty() && !com.sarat.app.domain.MacroCheck.ok(result, b)) {
+                    val fixText = PlanPrompts.userText(
+                        budget = b, goals = goals, pantry = pantry, wish = wish.takeIf { it.isNotBlank() },
+                        nowMinute = Dates.nowMinute(), thyroidMedMinute = medMinute,
+                        previous = result, change = com.sarat.app.domain.MacroCheck.fixRequest(result, b), exclude = emptyList(),
+                    )
+                    val fixed = runCatching { gemini.suggestMeal(fixText) }.getOrNull()
+                    if (fixed != null && fixed.possible && fixed.ingredients.isNotEmpty() &&
+                        com.sarat.app.domain.MacroCheck.distance(fixed, b) < com.sarat.app.domain.MacroCheck.distance(result, b)
+                    ) result = fixed
+                }
                 suggestion = result
                 savedCurrent = false
                 offline = false

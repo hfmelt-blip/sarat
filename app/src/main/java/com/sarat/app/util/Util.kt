@@ -19,7 +19,7 @@ import java.util.Locale
 import kotlin.math.max
 
 object Images {
-    private const val MAX_SIDE = 1024
+    private const val MAX_SIDE = 960
 
     /** ينشئ ملفاً مؤقتاً للكاميرا ويرجع Uri يمكن تمريره لـ TakePicture. */
     fun newCaptureUri(context: Context): Uri {
@@ -43,7 +43,7 @@ object Images {
     /** يحوّل الصورة إلى JPEG بصيغة Base64 لإرسالها إلى Gemini. */
     fun encode(bitmap: Bitmap): String {
         val out = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 82, out)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 75, out)
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 }

@@ -74,7 +74,9 @@ Task: suggest ONE meal the user can cook now from the ingredients they have at h
 Rules:
 - Use only the listed ingredients, plus basic staples every kitchen has: salt, pepper, common spices, water, lemon, and a small amount of cooking oil (count the oil's calories).
 - If a good meal really needs one missing item, you may add at most ONE, with available=false. Prefer meals with none missing.
-- Total calories must be within about 10% of the budget. Aim for the protein, carbs and fat targets given, protein first.
+- Total calories must be within about 10% of the budget.
+- Macros are as important as calories. Protein is a MINIMUM: reach at least the protein target (more is fine). Carbs are a MAXIMUM: do not go more than 10% above the carbs target. Fat should stay within about 20% of the fat target.
+- Before answering, add up protein, carbs and fat of all ingredients and adjust the amounts (more lean protein, fewer starchy carbs, less oil) until the totals meet these rules.
 - Give realistic home amounts in simple Arabic ("٢ بيضة", "نص كوب", "ملعقة كبيرة") and grams.
 - Steps: short, practical, in order, 3 to 7 steps, simple Iraqi-friendly Arabic.
 - Respect the user's diet goals (INSULIN_RESISTANCE: low sugar and refined carbs, more fibre and protein; HYPOTHYROID: balanced, avoid soy/coffee/high calcium near the medication time; OBESITY_LIPIDS: low sugar, little saturated fat, no deep frying).

@@ -206,9 +206,42 @@ class MealViewModel(
         edited = true
     }
 
-    fun addCustom(name: String, amount: String, calories: Int) {
-        if (name.isBlank() || calories <= 0) return
-        addItem(FoodItem(name = name.trim(), portion = amount.trim(), grams = 0, calories = calories, fit = "MODERATE"))
+    /** اسم المكوّن اللي نحسب سعراته هسه، أو null. */
+    var estimating by mutableStateOf<String?>(null)
+        private set
+    var addError by mutableStateOf<String?>(null)
+        private set
+
+    /** يضيف مكوّن يكتبه المستخدم، والسعرات يحسبها Gemini. */
+    fun addEstimated(name: String, amount: String) {
+        val n = name.trim()
+        if (n.isEmpty() || estimating != null) return
+        val label = listOf(n, amount.trim()).filter { it.isNotBlank() }.joinToString(" ")
+        estimating = label
+        addError = null
+        viewModelScope.launch {
+            try {
+                val r = kotlinx.coroutines.withTimeoutOrNull(70_000) {
+                    gemini.analyzeText("مكوّن واحد فقط يضاف لوجبة: $label. احسبه كسطر واحد.", buildContext())
+                } ?: throw GeminiException("طوّل الحساب، حاول مرة ثانية.")
+                val items = r.items
+                if (items.isEmpty()) throw GeminiException("ما كدرنا نحسب «$label». اكتبه بشكل أوضح.")
+                addItem(
+                    FoodItem(
+                        name = n, portion = amount.trim().ifBlank { items.first().portion },
+                        grams = items.sumOf { it.grams }, calories = items.sumOf { it.calories },
+                        proteinG = items.sumOf { it.proteinG }, carbsG = items.sumOf { it.carbsG }, fatG = items.sumOf { it.fatG },
+                        fit = items.first().fit,
+                    )
+                )
+            } catch (e: GeminiException) {
+                addError = e.message
+            } catch (e: Exception) {
+                addError = "ما كدرنا نحسب «$label». حاول مرة ثانية."
+            } finally {
+                estimating = null
+            }
+        }
     }
 
     /** يستبدل المكونات بتقدير المستخدم السابق لنفس الوجبة. */

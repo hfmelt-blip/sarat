@@ -239,6 +239,8 @@ private fun ResultContent(vm: MealViewModel, analysis: MealAnalysis) {
         Icon(Icons.Outlined.Add, contentDescription = null, tint = C.Green, modifier = Modifier.size(18.dp))
         Text("  أضف مكوّن ناقص (زيت، سكر، خبز…)", color = C.Green, fontWeight = FontWeight.SemiBold)
     }
+    vm.estimating?.let { Text("نحسب سعرات «$it»…", fontSize = 13.sp, color = C.Green, fontWeight = FontWeight.SemiBold) }
+    vm.addError?.let { Text(it, fontSize = 13.sp, color = C.RedText) }
     Text("الزيت والسكر غالباً ما ينشافون بالصورة، أضفهم إذا موجودين حتى يصير الحساب أدق.", fontSize = 12.sp, color = C.Muted)
 
     val remainingAfter = vm.remainingAfter
@@ -260,7 +262,7 @@ private fun ResultContent(vm: MealViewModel, analysis: MealAnalysis) {
     if (showAdd) {
         AddItemDialog(
             onQuick = { vm.addItem(it); showAdd = false },
-            onCustom = { name, amount, kcal -> vm.addCustom(name, amount, kcal); showAdd = false },
+            onCustom = { name, amount -> vm.addEstimated(name, amount); showAdd = false },
             onDismiss = { showAdd = false },
         )
     }
@@ -287,12 +289,11 @@ private fun PortionChip(text: String, selected: Boolean, onClick: () -> Unit) {
 @Composable
 internal fun AddItemDialog(
     onQuick: (FoodItem) -> Unit,
-    onCustom: (String, String, Int) -> Unit,
+    onCustom: (String, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
-    var kcal by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("أضف مكوّن") },
@@ -313,21 +314,16 @@ internal fun AddItemDialog(
                     }
                 }
                 Text("أو اكتبه بنفسك", fontSize = 13.sp, color = C.Muted)
-                OutlinedTextField(name, { name = it.take(40) }, label = { Text("الاسم") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(name, { name = it.take(40) }, label = { Text("شنو تريد تضيف؟ (مثلاً: نص صمونة)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(amount, { amount = it.take(30) }, label = { Text("الكمية (اختياري)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(
-                    kcal, { kcal = it.filter(Char::isDigit).take(4) },
-                    label = { Text("السعرات") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Text("التطبيق يحسب سعراتها تلقائياً", fontSize = 12.sp, color = C.Muted)
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onCustom(name, amount, kcal.toIntOrNull() ?: 0) },
-                enabled = name.isNotBlank() && (kcal.toIntOrNull() ?: 0) > 0,
-            ) { Text("أضف") }
+                onClick = { onCustom(name, amount) },
+                enabled = name.isNotBlank(),
+            ) { Text("احسب وأضف") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
     )

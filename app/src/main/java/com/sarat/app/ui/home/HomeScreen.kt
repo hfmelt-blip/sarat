@@ -122,9 +122,14 @@ fun HomeScreen(
     var pendingUri by rememberSaveable { mutableStateOf<String?>(null) }
     var toDelete by remember { mutableStateOf<Meal?>(null) }
 
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        val uri = pendingUri
-        if (ok && uri != null) onPhoto(Uri.parse(uri))
+        val uri = pendingUri?.let(Uri::parse)
+        // بعض كاميرات سامسونج ترجع «فشل» رغم إنها حفظت الصورة، فنتأكد من الملف نفسه
+        val saved = uri != null && (ok || runCatching {
+            ctx.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length > 1000 } == true
+        }.getOrDefault(false))
+        if (saved && uri != null) onPhoto(uri)
         pendingUri = null
     }
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->

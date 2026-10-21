@@ -164,8 +164,8 @@ class RecipeEditViewModel(
 
     fun addRow() { rows.add(EditRow()) }
     fun removeRow(i: Int) { if (i in rows.indices) rows.removeAt(i) }
-    fun updateName(i: Int, v: String) { rows.getOrNull(i)?.let { rows[i] = it.copy(name = v) } }
-    fun updateAmount(i: Int, v: String) { rows.getOrNull(i)?.let { rows[i] = it.copy(amount = v) } }
+    fun updateName(i: Int, v: String) { rows.getOrNull(i)?.let { rows[i] = it.copy(name = v, kcal = ""); dirty = true } }
+    fun updateAmount(i: Int, v: String) { rows.getOrNull(i)?.let { rows[i] = it.copy(amount = v, kcal = ""); dirty = true } }
 
     /** تغيير السعرات يدوياً يغيّر البروتين والكارب والدهون بنفس النسبة. */
     fun updateKcal(i: Int, v: String) {
@@ -182,12 +182,22 @@ class RecipeEditViewModel(
     val canSave get() = title.isNotBlank() && filled.isNotEmpty() && !loading
 
     /** يحسب سعرات ومغذيات المكونات بـ Gemini. */
+    /** تغيّرت المكونات بعد آخر حساب للسعرات. */
+    private var dirty = false
+
     fun calculate() {
+        if (filled.isEmpty() || loading) return
+        viewModelScope.launch { calcNow() }
+    }
+
+    /** يحسب سعرات ومغذيات المكونات، ويرجع true إذا نجح. */
+    private suspend fun calcNow(): Boolean {
         val list = filled
-        if (list.isEmpty() || loading) return
+        if (list.isEmpty()) return false
         loading = true
         message = null
-        viewModelScope.launch {
+        var ok = false
+        run {
             try {
                 val profile = repo.getProfile()
                 val text = "وصفة «${title.ifBlank { "وجبة" }}» لحصة وحدة. احسب كل مكوّن كسطر مستقل بنفس الاسم والكمية:\n" +
@@ -206,6 +216,8 @@ class RecipeEditViewModel(
                         EditRow(it.name, it.portion.ifBlank { kept.getOrNull(n)?.amount.orEmpty() }, it.calories.toString(), it.grams, it.proteinG, it.carbsG, it.fatG, kept.getOrNull(n)?.available ?: true)
                     })
                     message = "انحسبت السعرات: $total سعرة للحصة"
+                    dirty = false
+                    ok = true
                 }
             } catch (e: com.sarat.app.data.gemini.GeminiException) {
                 message = e.message
@@ -215,11 +227,16 @@ class RecipeEditViewModel(
                 loading = false
             }
         }
+        return ok
     }
 
     fun save(onDone: (Long) -> Unit) {
         if (!canSave) return
         viewModelScope.launch {
+            // السعرات تنحسب تلقائياً إذا ناقصة أو تغيّرت المكونات
+            if (dirty || filled.any { (it.kcal.toIntOrNull() ?: 0) <= 0 }) {
+                if (!calcNow()) return@launch
+            }
             val goals = repo.getProfile()?.goals ?: emptySet()
             val base = MealSuggestion(
                 possible = true,

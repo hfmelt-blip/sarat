@@ -248,7 +248,20 @@ private fun SuggestionContent(vm: PlanViewModel, s: MealSuggestion) {
             }
         }
         if (s.summary.isNotBlank()) Text(s.summary, fontSize = 14.sp, color = C.Muted, lineHeight = 22.sp)
-        Text(
+        if (budget != null) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                com.sarat.app.domain.MacroCheck.lines(s, budget).forEach { l ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(l.label, fontSize = 13.sp, color = C.Muted, modifier = Modifier.weight(1f))
+                        Text(
+                            "${l.value} من ${l.target}غ" + if (l.ok) "  ✓" else "  · ${l.hint}",
+                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                            color = if (l.ok) C.GreenDark else C.OrangeText,
+                        )
+                    }
+                }
+            }
+        } else Text(
             "بروتين ${s.totalProtein.toInt()}غ · كارب ${s.totalCarbs.toInt()}غ · دهون ${s.totalFat.toInt()}غ",
             fontSize = 13.sp, color = C.Ink,
         )

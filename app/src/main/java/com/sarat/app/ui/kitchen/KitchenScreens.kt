@@ -445,11 +445,10 @@ fun RecipeEditScreen(vm: RecipeEditViewModel, onBack: () -> Unit, onSaved: (Long
                             placeholder = { Text("الكمية (نص كوب)") }, singleLine = true,
                             shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1.4f),
                         )
-                        OutlinedTextField(
-                            value = r.kcal, onValueChange = { vm.updateKcal(i, it) },
-                            placeholder = { Text("سعرات") }, singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f),
+                        Text(
+                            if ((r.kcal.toIntOrNull() ?: 0) > 0) "${r.kcal} سعرة" else "—",
+                            fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = C.Green,
+                            modifier = Modifier.weight(0.7f).align(Alignment.CenterVertically),
                         )
                     }
                 }
@@ -470,7 +469,7 @@ fun RecipeEditScreen(vm: RecipeEditViewModel, onBack: () -> Unit, onSaved: (Long
                     Text("  احسب السعرات بـ Gemini", color = C.Green, fontWeight = FontWeight.SemiBold)
                 }
             }
-            Text("أو اكتب السعرات بنفسك إذا تعرفها.", fontSize = 12.sp, color = C.Muted)
+            Text("السعرات تنحسب تلقائياً من تحفظ، أو اضغط الزر حتى تشوفها قبل.", fontSize = 12.sp, color = C.Muted)
             vm.message?.let { Text(it, color = C.GreenDark, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
 
             Text("طريقة التحضير", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = C.Ink)
