@@ -47,7 +47,7 @@ export function pickPhoto(capture = true) {
     if (!file) return;
     try {
       const { img, url } = await loadImage(file);
-      const full = toJpeg(img, 1280, 0.85);
+      const full = toJpeg(img, 960, 0.75);
       session.meal = { mode: 'photo', image: full, thumb: squareThumb(img, 160), state: 'loading' };
       URL.revokeObjectURL(url);
       go('meal');
@@ -196,21 +196,33 @@ function resultContent(m) {
 function addItemDialog(m) {
   modal((box, close) => {
     const add = (item) => { m.analysis.items.push({ ...item }); m.edited = true; close(); rerender(); };
-    let name = '', amount = '', kcal = '';
+    let name = '', amount = '';
+    const status = h('div');
+    const btn = h('button', { class: 'btn' }, 'احسب وأضف');
+    btn.onclick = async () => {
+      if (!name.trim()) { toast('اكتب شنو تريد تضيف'); return; }
+      const label = [name.trim(), amount.trim()].filter(Boolean).join(' ');
+      btn.disabled = true;
+      status.replaceChildren(h('div', { class: 'row small' }, h('div', { class: 'spinner' }), `نحسب سعرات «${label}»…`));
+      try {
+        const a = await analyzeMeal(S.apiKey(), mealContext(), { description: `مكوّن واحد فقط يضاف لوجبة: ${label}. احسبه كسطر واحد.` });
+        if (!a.items.length) throw new GeminiError(`ما كدرنا نحسب «${label}». اكتبه بشكل أوضح.`);
+        const sum = (k) => a.items.reduce((x, i) => x + (i[k] || 0), 0);
+        add({ name: name.trim(), portion: amount.trim() || a.items[0].portion, grams: sum('grams'), calories: Math.round(sum('calories')), proteinG: sum('proteinG'), carbsG: sum('carbsG'), fatG: sum('fatG'), fit: a.items[0].fit });
+      } catch (e) {
+        btn.disabled = false;
+        status.replaceChildren(h('div', { class: 'error small' }, e instanceof GeminiError ? e.message : `ما كدرنا نحسب «${label}». حاول مرة ثانية.`));
+      }
+    };
     box.append(h('div', { class: 'stack' },
       h('h3', null, 'أضف مكوّن'),
       h('div', { class: 'chips' }, QUICK_ITEMS.map((q) => h('button', { class: 'chip', onclick: () => add(q) }, `${q.name} · ${q.calories}`))),
       h('hr', { class: 'sep' }),
       h('div', { class: 'small semi' }, 'أو اكتبه بنفسك'),
-      h('input', { class: 'input', placeholder: 'الاسم', oninput: (e) => { name = e.target.value; } }),
-      h('div', { class: 'row' },
-        h('input', { class: 'input grow', placeholder: 'الكمية', oninput: (e) => { amount = e.target.value; } }),
-        h('input', { class: 'input', style: { width: '120px' }, placeholder: 'السعرات', inputmode: 'numeric', oninput: (e) => { kcal = e.target.value; } })),
-      h('button', { class: 'btn', onclick: () => {
-        const k = parseNum(kcal);
-        if (!name.trim() || !(k > 0)) { toast('اكتب الاسم والسعرات'); return; }
-        add({ name: name.trim(), portion: amount.trim(), grams: 0, calories: Math.round(k), proteinG: 0, carbsG: 0, fatG: 0, fit: 'MODERATE' });
-      } }, 'أضف')));
+      h('input', { class: 'input', placeholder: 'شنو تريد تضيف؟ (مثلاً: نص صمونة)', oninput: (e) => { name = e.target.value; } }),
+      h('input', { class: 'input', placeholder: 'الكمية (اختياري)', oninput: (e) => { amount = e.target.value; } }),
+      h('div', { class: 'hint' }, 'التطبيق يحسب سعراتها تلقائياً.'),
+      status, btn));
   });
 }
 

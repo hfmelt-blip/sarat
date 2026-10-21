@@ -43,7 +43,9 @@ Task: suggest ONE meal the user can cook now from the ingredients they have at h
 Rules:
 - Use only the listed ingredients, plus basic staples every kitchen has: salt, pepper, common spices, water, lemon, and a small amount of cooking oil (count the oil's calories).
 - If a good meal really needs one missing item, you may add at most ONE, with available=false. Prefer meals with none missing.
-- Total calories must be within about 10% of the budget. Aim for the protein, carbs and fat targets given, protein first.
+- Total calories must be within about 10% of the budget.
+- Macros are as important as calories. Protein is a MINIMUM: reach at least the protein target (more is fine). Carbs are a MAXIMUM: do not go more than 10% above the carbs target. Fat should stay within about 20% of the fat target.
+- Before answering, add up protein, carbs and fat of all ingredients and adjust the amounts (more lean protein, fewer starchy carbs, less oil) until the totals meet these rules.
 - Give realistic home amounts in simple Arabic ("٢ بيضة", "نص كوب", "ملعقة كبيرة") and grams.
 - Steps: short, practical, in order, 3 to 7 steps, simple Iraqi-friendly Arabic.
 - Respect the user's diet goals (INSULIN_RESISTANCE: low sugar and refined carbs, more fibre and protein; HYPOTHYROID: balanced, avoid soy/coffee/high calcium near the medication time; OBESITY_LIPIDS: low sugar, little saturated fat, no deep frying).
@@ -157,6 +159,17 @@ function errorMessage(code, model) {
 
 class HttpError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
 
+/** مشاكل الشبكة المؤقتة نعيد عليها مرتين قبل لا نستسلم. */
+async function callWithRetry(model, key, body) {
+  for (let attempt = 0; ; attempt++) {
+    try { return await call(model, key, body); }
+    catch (e) {
+      if (!(e instanceof HttpError) || e.code !== 503 || attempt >= 2) throw e;
+      await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+    }
+  }
+}
+
 async function call(model, key, body) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 60000);
@@ -171,6 +184,7 @@ async function call(model, key, body) {
   } catch (e) {
     if (e.name === 'AbortError') throw new HttpError(408, 'Gemini طوّل بالرد. حاول مرة ثانية.');
     if (!navigator.onLine) throw new GeminiError('ما كو اتصال بالإنترنت. تأكد من الشبكة وحاول مرة ثانية.');
+    // انقطاع لحظي رغم وجود النت: نعيد المحاولة
     throw new HttpError(503, 'تعذّر الوصول لخدمة Gemini. حاول بعد شوية.');
   } finally {
     clearTimeout(timer);
@@ -205,8 +219,8 @@ async function requestJson(key, system, text, imageBase64, schema) {
   for (const model of MODELS) {
     try {
       let raw;
-      try { raw = await call(model, key, body(true)); }
-      catch (e) { if (e instanceof HttpError && e.code === 400) raw = await call(model, key, body(false)); else throw e; }
+      try { raw = await callWithRetry(model, key, body(true)); }
+      catch (e) { if (e instanceof HttpError && e.code === 400) raw = await callWithRetry(model, key, body(false)); else throw e; }
       return extract(raw);
     } catch (e) {
       if (e instanceof HttpError) {
@@ -246,4 +260,28 @@ export async function verifyKey(key) {
   } catch (_) {
     return 'تعذّر الاتصال. تأكد من الإنترنت.';
   }
+}
+
+// ───── فحص البروتين والكارب والدهون للوجبة المقترحة ─────
+
+const sumBy = (s, k) => s.ingredients.reduce((a, i) => a + (i[k] || 0), 0);
+
+export function macroLines(s, b) {
+  const p = Math.round(sumBy(s, 'proteinG')), c = Math.round(sumBy(s, 'carbsG')), f = Math.round(sumBy(s, 'fatG'));
+  return [
+    { label: 'بروتين', value: p, target: b.proteinG, ok: p >= b.proteinG * 0.85, hint: 'أقل من حاجتك' },
+    { label: 'كارب', value: c, target: b.carbsG, ok: c <= b.carbsG * 1.15 + 5, hint: 'أعلى من هدفك' },
+    { label: 'دهون', value: f, target: b.fatG, ok: f <= b.fatG * 1.3 + 3, hint: 'أعلى من هدفك' },
+  ];
+}
+export const macrosOk = (s, b) => macroLines(s, b).every((l) => l.ok);
+export function macroDistance(s, b) {
+  const p = Math.max(0, b.proteinG - sumBy(s, 'proteinG')) / Math.max(1, b.proteinG);
+  const c = Math.max(0, sumBy(s, 'carbsG') - b.carbsG) / Math.max(1, b.carbsG);
+  const f = Math.max(0, sumBy(s, 'fatG') - b.fatG) / Math.max(1, b.fatG);
+  const k = Math.abs(sumBy(s, 'calories') - b.kcal) / Math.max(1, b.kcal);
+  return p * 2 + c * 1.5 + f + k;
+}
+export function macroFixRequest(s, b) {
+  return `Adjust the ingredient amounts so the meal has at least ${b.proteinG} g protein, at most ${b.carbsG} g carbs, about ${b.fatG} g fat, and about ${b.kcal} kcal. Currently it has ${Math.round(sumBy(s, 'proteinG'))} g protein, ${Math.round(sumBy(s, 'carbsG'))} g carbs, ${Math.round(sumBy(s, 'fatG'))} g fat. Keep the same dish if possible.`;
 }

@@ -4,7 +4,7 @@ import { h, icon, epochDay, nowMinute, toast, confirmBox, chips, parseNum, heade
 import { route, go, back, rerender, session } from './nav.js';
 import * as S from './store.js';
 import * as N from './nutrition.js';
-import { suggestMeal, planText, analyzeMeal, GeminiError } from './gemini.js';
+import { suggestMeal, planText, analyzeMeal, GeminiError, macroLines, macrosOk, macroDistance, macroFixRequest } from './gemini.js';
 import { BUILTIN, builtinById, builtinKcal, builtinToSuggestion, totals, judge, scaleIng, recipeText } from './recipes.js';
 
 const SLOT_NAMES = Object.fromEntries(Object.entries(N.SLOTS).map(([k, v]) => [k, v.english]));
@@ -34,12 +34,20 @@ async function requestSuggestion(ps, previous = null, change = null) {
   ps.loading = true; ps.error = null; rerender();
   try {
     const p = S.profile();
-    const text = planText({
-      budget: computeBudget(ps), slotEnglish: N.SLOTS[ps.slot].english, slotNames: SLOT_NAMES, nowMinute: nowMinute(),
+    const b = computeBudget(ps);
+    const base = {
+      budget: b, slotEnglish: N.SLOTS[ps.slot].english, slotNames: SLOT_NAMES, nowMinute: nowMinute(),
       goals: p.goals, medMinute: p.thyroidMedMinute ?? null, pantry: pr.pantry, wish: ps.wish.trim() || null,
-      exclude: ps.shown, feedback: S.planFeedback(), previous, change,
-    });
-    const r = await suggestMeal(S.apiKey(), text);
+      exclude: ps.shown, feedback: S.planFeedback(),
+    };
+    let r = await suggestMeal(S.apiKey(), planText({ ...base, previous, change }));
+    // إذا الوجبة ما راعت البروتين والكارب والدهون، نطلب تصحيح مرة وحدة
+    if (r.possible && r.ingredients.length && !macrosOk(r, b)) {
+      try {
+        const fixed = await suggestMeal(S.apiKey(), planText({ ...base, exclude: [], previous: r, change: macroFixRequest(r, b) }));
+        if (fixed.possible && fixed.ingredients.length && macroDistance(fixed, b) < macroDistance(r, b)) r = fixed;
+      } catch (_) { /* نبقى على الاقتراح الأول */ }
+    }
     ps.suggestion = r; ps.offline = false; ps.saved = false;
     if (r.dishName) ps.shown.push(r.dishName);
     if (change) ps.change = '';
@@ -96,7 +104,8 @@ function suggestOffline(ps, onlyWish) {
       if (c.saved) s += 5;
       if (disliked.has(N.dishKey(c.name))) s -= 60;
       if (pantryKey && c.keys.length) s += 20 * c.keys.filter((k) => pantryKey.includes(N.dishKey(k))).length / c.keys.length;
-      return s - Math.abs(c.baseKcal - b.kcal) / 50;
+      const f = Math.min(1.5, Math.max(0.5, b.kcal / c.baseKcal));
+      return s - macroDistance(c.make(f), b) * 25;
     };
     picked = pool.sort((a, b2) => score(b2) - score(a))[0];
   }
@@ -220,6 +229,9 @@ function suggestionContent(ps, s, b) {
   const out = [];
   if (ps.offline) out.push(h('div', null, h('span', { class: 'badge GOOD' }, 'من الوصفات المحفوظة، بدون إنترنت')));
   out.push(summaryCard(s, b.kcal));
+  out.push(h('div', { class: 'card tight stack-s' }, macroLines(s, b).map((l) => h('div', { class: 'row small' },
+    h('span', { class: 'grow muted' }, l.label),
+    h('span', { class: 'semi', style: { color: l.ok ? 'var(--green-dark)' : 'var(--orange-text)' } }, `${l.value} من ${l.target}غ` + (l.ok ? '  ✓' : `  · ${l.hint}`))))));
   out.push(h('h3', null, 'المقادير'));
   s.ingredients.forEach((i, idx) => out.push(ingredientRow(i, {
     onScale: (f) => { const n = scaleIng(i, f); if (n.calories <= 0 && f < 1) return; s.ingredients[idx] = n; rerender(); },
@@ -338,7 +350,7 @@ route('edit', (r) => {
 
   const calc = async () => {
     const list = e.rows.filter((x) => x.name.trim());
-    if (!list.length || e.loading) return;
+    if (!list.length || e.loading) return false;
     if (!S.apiKey()) { go('apikey'); return; }
     e.loading = true; e.message = null; rerender();
     try {
@@ -349,16 +361,24 @@ route('edit', (r) => {
       else {
         e.rows = a.items.map((it, n) => ({ name: it.name, amount: it.portion || (list[n] ? list[n].amount : ''), kcal: String(it.calories), grams: it.grams, p: it.proteinG, c: it.carbsG, f: it.fatG, available: list[n] ? list[n].available : true }));
         e.message = `انحسبت السعرات: ${e.rows.reduce((s2, x) => s2 + (parseNum(x.kcal) || 0), 0)} سعرة للحصة`;
+        e.dirty = false;
+        e.loading = false; rerender();
+        return true;
       }
     } catch (err) {
       e.message = err instanceof GeminiError ? err.message : 'صار خطأ: ' + (err.message || err);
     }
     e.loading = false; rerender();
+    return false;
   };
 
   const save = async () => {
+    if (!e.title.trim() || !e.rows.some((x) => x.name.trim())) { toast('اكتب اسم الأكلة ومكوّن واحد على الأقل'); return; }
+    // السعرات تنحسب تلقائياً إذا ناقصة أو تغيّرت المكونات
+    if (e.dirty || e.rows.some((x) => x.name.trim() && !((parseNum(x.kcal) || 0) > 0))) {
+      if (!(await calc())) return;
+    }
     const rows = e.rows.filter((x) => x.name.trim());
-    if (!e.title.trim() || !rows.length) { toast('اكتب اسم الأكلة ومكوّن واحد على الأقل'); return; }
     const goals = S.profile().goals;
     const base = {
       possible: true, dishName: e.title.trim(),
@@ -376,15 +396,11 @@ route('edit', (r) => {
 
   const rowsEls = e.rows.map((x, i) => h('div', { class: 'card tight stack-s' },
     h('div', { class: 'row' },
-      h('input', { class: 'input grow', placeholder: 'المكوّن (مثلاً: عدس)', value: x.name, oninput: (ev) => { x.name = ev.target.value; } }),
+      h('input', { class: 'input grow', placeholder: 'المكوّن (مثلاً: عدس)', value: x.name, oninput: (ev) => { x.name = ev.target.value; x.kcal = ''; e.dirty = true; } }),
       h('button', { class: 'icon-btn plain', 'aria-label': 'احذف المكوّن', onclick: () => { e.rows.splice(i, 1); rerender(); } }, icon('trash'))),
     h('div', { class: 'row' },
-      h('input', { class: 'input grow', placeholder: 'الكمية (نص كوب)', value: x.amount, oninput: (ev) => { x.amount = ev.target.value; } }),
-      h('input', { class: 'input', style: { width: '110px' }, placeholder: 'سعرات', inputmode: 'numeric', value: x.kcal, oninput: (ev) => {
-        const old = parseNum(x.kcal) || 0, nw = parseNum(ev.target.value) || 0;
-        if (old > 0) { const f = nw / old; x.p *= f; x.c *= f; x.f *= f; x.grams = Math.round(x.grams * f); }
-        x.kcal = ev.target.value; updTotal();
-      } }))));
+      h('input', { class: 'input grow', placeholder: 'الكمية (نص كوب)', value: x.amount, oninput: (ev) => { x.amount = ev.target.value; x.kcal = ''; e.dirty = true; } }),
+      h('span', { class: 'semi small', style: { color: 'var(--green)', minWidth: '80px', textAlign: 'center' } }, (parseNum(x.kcal) || 0) > 0 ? `${x.kcal} سعرة` : '—'))));
 
   return h('div', null,
     h('main', { class: 'screen no-tabs stack' },
@@ -395,7 +411,7 @@ route('edit', (r) => {
       rowsEls,
       h('button', { class: 'btn ghost', style: { color: 'var(--green)', alignSelf: 'flex-start' }, onclick: () => { e.rows.push({ name: '', amount: '', kcal: '', grams: 0, p: 0, c: 0, f: 0, available: true }); rerender(); } }, icon('plus'), 'أضف مكوّن'),
       h('button', { class: 'btn outline', disabled: e.loading, onclick: calc }, e.loading ? h('div', { class: 'spinner' }) : icon('sparkle'), e.loading ? 'نحسب…' : 'احسب السعرات بـ Gemini'),
-      h('div', { class: 'hint' }, 'أو اكتب السعرات بنفسك إذا تعرفها.'),
+      h('div', { class: 'hint' }, 'السعرات تنحسب تلقائياً من تحفظ، أو اضغط الزر حتى تشوفها قبل.'),
       e.message ? h('div', { class: 'soft small' }, e.message) : null,
       h('h3', null, 'طريقة التحضير'),
       h('textarea', { class: 'input', placeholder: 'كل خطوة بسطر', oninput: (ev) => { e.steps = ev.target.value; } }, e.steps)),
