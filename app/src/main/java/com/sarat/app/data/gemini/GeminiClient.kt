@@ -88,7 +88,7 @@ class GeminiClient(
             .get()
             .build()
         try {
-            client.newCall(request).execute().use { response ->
+            http.newCall(request).execute().use { response ->
                 when {
                     response.isSuccessful -> null
                     response.code == 400 || response.code == 401 || response.code == 403 ->
@@ -206,7 +206,7 @@ class GeminiClient(
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
         return try {
-            http.newCall(request).execute().use { response ->
+            client.newCall(request).execute().use { response ->
                 val payload = response.body?.string().orEmpty()
                 if (!response.isSuccessful) throw HttpError(response.code, errorMessage(response.code, model, payload))
                 payload
